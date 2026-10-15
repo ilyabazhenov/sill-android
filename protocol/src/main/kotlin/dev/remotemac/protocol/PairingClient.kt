@@ -19,7 +19,14 @@ object PairingClient {
         ) : Outcome()
 
         /** Not paired: one of PairResult's reasons ("code", "closed", "expired", "shown"…). */
-        data class Refused(val reason: String, val triesLeft: Int?, val retryAfter: Double?, val message: String?) : Outcome()
+        data class Refused(
+            val reason: String,
+            val triesLeft: Int?,
+            val retryAfter: Double?,
+            val message: String?,
+            /** The key the Mac presented: an ask's "shown" pins the code that follows to it. */
+            val macFingerprint: ByteArray? = null,
+        ) : Outcome()
 
         /** The Mac's answer did not prove it knew the secret: not the Mac the code is from. */
         data object BadProof : Outcome()
@@ -73,7 +80,7 @@ object PairingClient {
                 t,
                 PairRequest(method = PairRequest.ASK, proof = "", name = deviceName, model = model, cable = if (cable) true else null),
             )
-            if (!result.ok) return Outcome.Refused(result.reason ?: "closed", result.triesLeft, result.retryAfter, result.message)
+            if (!result.ok) return Outcome.Refused(result.reason ?: "closed", result.triesLeft, result.retryAfter, result.message, macFp)
             // An ok without a proof is only ever the cable's answer to an ask that claimed it.
             if (!cable || result.method != "cable") return Outcome.BadProof
             return paired(result, macFp, true)

@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "remote-mac"
-include(":protocol")
+include(":protocol", ":app")
