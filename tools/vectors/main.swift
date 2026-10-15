@@ -1,0 +1,35 @@
+import Foundation
+func j<T: Encodable>(_ name: String, _ v: T) {
+  let e = JSONEncoder(); e.outputFormatting = [.sortedKeys]
+  print(name + "\t" + String(data: try! e.encode(v), encoding: .utf8)!)
+}
+j("ptr", InputEvent.pointer(.leftDown, x: 0.25, y: 0.5))
+j("scroll", InputEvent.scroll(x: 0.1, y: 0.2, dx: 0.01, dy: -0.02))
+j("text", InputEvent.text("hé\n"))
+j("sg", InputEvent.scrollGesture(.momentumBegan, x: 0.3, y: 0.4))
+j("key", InputEvent.key(hidUsage: 44, down: true, modifiers: 1048576))
+j("srcnone", StreamSource.none)
+j("srcwin", StreamSource.window(1234))
+j("srcdesk", StreamSource.desktop)
+j("vp", Viewport(width: 800, height: 500, scale: nil, localCursor: true, fps: 60))
+j("wc", WindowCommand(id: 7, action: .fullScreen))
+j("hello", Hello(appVersion: "0.1", build: "1", protocol: 1, device: "Pixel"))
+j("stats", ClientStats(fps: 60, frameAgeMs: 9, rttMs: 7, device: "Pixel", frameAgeMaxMs: 20, rttMaxMs: 10))
+j("change", HostSettingsChange(token: 3, bitrate: 25000000))
+j("pr", PairRequest(method: "code", proof: "abc", name: "Pixel", model: "Pixel 8"))
+j("clip", Clipboard())
+j("fetch", FetchMenu(token: 1))
+j("wl", WindowList(macName: "Mac", windows: [WindowInfo(id: 1, title: "T", appName: "A", bundleID: "b", width: 10, height: 20)], active: .window(1), launchID: "x"))
+// pairing vectors
+let fp = Data((0..<32).map { UInt8($0) })
+let fpd = Data((0..<32).map { UInt8(255 - $0) })
+let key = PairingProof.codeKey(code: "482913557208", macFingerprint: fp)!
+print("codekey\t" + key.withUnsafeBytes { Data($0) }.base64EncodedString())
+print("proofD\t" + Base64URL.encode(PairingProof.deviceProof(key: key, deviceFingerprint: fpd, macFingerprint: fp)))
+print("proofM\t" + Base64URL.encode(PairingProof.macProof(key: key, macFingerprint: fp, deviceFingerprint: fpd)))
+print("macid\t" + MacID.make(fingerprint: fp))
+print("damm\t\(PairingCode.checkDigit([4,8,2,9,1,3,5,5,7,2,0]))")
+print("tag\t" + RecognitionTag.make(recognitionKey: fp, nonce: Data([1,2,3,4,5,6]))!)
+let pt = Data([0x04] + (1...64).map { UInt8($0) })
+print("spki\t" + SPKI.der(point: pt).base64EncodedString())
+print("spkifp\t" + Base64URL.encode(SPKI.fingerprint(point: pt)))
