@@ -9,6 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import dev.remotemac.app.stream.HidKeys
 import dev.remotemac.app.stream.Phase
 import dev.remotemac.app.ui.AppRoot
@@ -51,9 +54,13 @@ class MainActivity : ComponentActivity() {
         controller.discovery.stop()
     }
 
-    fun keepScreenOn(on: Boolean) {
+    /** While streaming: the screen stays on and the system bars give the Mac's picture their room. */
+    fun streaming(on: Boolean) {
         if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val bars = WindowCompat.getInsetsController(window, window.decorView)
+        bars.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (on) bars.hide(WindowInsetsCompat.Type.systemBars()) else bars.show(WindowInsetsCompat.Type.systemBars())
     }
 
     /**

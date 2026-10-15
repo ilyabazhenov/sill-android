@@ -48,7 +48,7 @@ fun AppRoot(controller: Controller, activity: MainActivity) {
         LaunchedEffect(Unit) { controller.notices.collect { snack.showSnackbar(it) } }
 
         val streaming = (phase == Phase.CONNECTED || phase == Phase.RECONNECTING) && windows != null
-        LaunchedEffect(streaming) { activity.keepScreenOn(streaming) }
+        LaunchedEffect(streaming) { activity.streaming(streaming) }
 
         Box(Modifier.fillMaxSize()) {
             when {
