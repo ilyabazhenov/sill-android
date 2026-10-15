@@ -13,7 +13,6 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import dev.remotemac.app.stream.Controller
-import dev.remotemac.app.stream.HidKeys
 import dev.remotemac.protocol.PointerAction
 import dev.remotemac.protocol.ScrollPhase
 import dev.remotemac.protocol.TrackpadGesture
@@ -110,13 +109,7 @@ private fun decideGesture(start: List<Offset>, end: List<Offset>, density: Float
 }
 
 /** Press the latched modifiers' own keys around a click, as a keyboard held down would. */
-private fun withModifiers(c: Controller, mods: Long, click: () -> Unit) {
-    if (mods == 0L) return click()
-    val keys = HidKeys.modifierKeys(mods)
-    keys.forEach { (k, held) -> c.key(k, true, held) }
-    click()
-    keys.reversed().forEach { (k, _) -> c.key(k, false, 0) }
-}
+private fun withModifiers(c: Controller, mods: Long, click: () -> Unit) = c.withModifiers(mods, click)
 
 /**
  * Direct touch: the picture is the Mac's screen. A tap clicks there; a long press is a right click,
@@ -279,9 +272,7 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.mou
     val r = rect() ?: return
     val (x, y) = r.clamped(down.position)
     val secondary = currentEvent.buttons.isSecondaryPressed
-    val mods = latch.take()
-    val keys = HidKeys.modifierKeys(mods)
-    keys.forEach { (k, held) -> c.key(k, true, held) }
+    val releaseModifiers = c.holdModifiers(latch.take())
     c.move(x, y)
     c.pointer(if (secondary) PointerAction.RIGHT_DOWN else PointerAction.LEFT_DOWN, x, y)
     var last = x to y
@@ -295,7 +286,7 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.mou
         ch.consume()
     }
     c.pointer(if (secondary) PointerAction.RIGHT_UP else PointerAction.LEFT_UP, last.first, last.second)
-    keys.reversed().forEach { (k, _) -> c.key(k, false, 0) }
+    releaseModifiers()
 }
 
 /** Set by the screen so a long press can buzz without a View in the gesture code. */

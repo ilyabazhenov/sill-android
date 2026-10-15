@@ -32,6 +32,11 @@ class VideoDecoder {
     @Volatile var onVideoSize: ((Int, Int) -> Unit)? = null
     /** Each frame decoded and shown. */
     @Volatile var onFrameShown: (() -> Unit)? = null
+    /**
+     * A frame had to be dropped, so nothing decodes until a keyframe. The device cannot ask the
+     * Mac for one directly; the owner restarts the stream, which begins with one.
+     */
+    @Volatile var onStall: (() -> Unit)? = null
 
     fun attach(s: Surface?) = handler.post {
         if (s === surface) return@post
@@ -57,18 +62,24 @@ class VideoDecoder {
             if (codec == null) configure(s, ps)
             val c = codec ?: return@post
             val annexB = toAnnexB(accessUnit, nalLength) ?: return@post
-            val index = c.dequeueInputBuffer(20_000)
+            // A busy decoder frees an input buffer once it hands frames out: keep draining while
+            // waiting (this thread is the decoder's own). Only a decoder stuck for half a second
+            // loses the frame, and then the stream has to start again from a keyframe.
+            var index = -1
+            val deadline = System.nanoTime() + 500_000_000L
+            while (index < 0 && System.nanoTime() < deadline) {
+                index = c.dequeueInputBuffer(10_000)
+                if (index < 0) drain(c)
+            }
             if (index < 0) {
-                // The decoder is behind: drop this frame and resync at the next keyframe.
-                waitingForKeyframe = true
-                drain(c)
+                stalled()
                 return@post
             }
             val buf = c.getInputBuffer(index)!!
             buf.clear()
             if (annexB.size > buf.capacity()) {
                 c.queueInputBuffer(index, 0, 0, pts, 0)
-                waitingForKeyframe = true
+                stalled()
                 return@post
             }
             buf.put(annexB)
@@ -79,8 +90,13 @@ class VideoDecoder {
         } catch (e: Exception) {
             Log.w(TAG, "decode failed; waiting for the next keyframe", e)
             release()
-            waitingForKeyframe = true
+            stalled()
         }
+    }
+
+    private fun stalled() {
+        waitingForKeyframe = true
+        onStall?.invoke()
     }
 
     private fun configure(s: Surface, ps: List<ByteArray>) {
@@ -97,6 +113,8 @@ class VideoDecoder {
         c.configure(f, s, null, 0)
         c.start()
         codec = c
+        handler.removeCallbacks(pump)
+        handler.post(pump)
     }
 
     private fun drain(c: MediaCodec) {
@@ -119,17 +137,17 @@ class VideoDecoder {
         }
     }
 
-    /** Poll for output a few times after input: some decoders return frames late. */
+    /** Poll for output while a decoder runs: some decoders return frames late. Idle otherwise. */
     private val pump = object : Runnable {
         override fun run() {
-            codec?.let { try { drain(it) } catch (_: Exception) {} }
+            val c = codec ?: return
+            try { drain(c) } catch (_: Exception) {}
             handler.postDelayed(this, 4)
         }
     }
 
-    init { handler.post(pump) }
-
     private fun release() {
+        handler.removeCallbacks(pump)
         codec?.let {
             try { it.stop() } catch (_: Exception) {}
             try { it.release() } catch (_: Exception) {}

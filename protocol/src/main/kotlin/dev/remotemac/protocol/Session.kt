@@ -2,9 +2,11 @@ package dev.remotemac.protocol
 
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** What a session hears from the Mac. Called on the session's reader thread. */
 interface SessionListener {
@@ -56,9 +58,10 @@ class Session(
     private var pendingMove: ByteArray? = null
     private var moveScheduled = false
 
+    private val inputs = AtomicInteger(0)
+
     /** Input messages (kind 8) sent so far; kind 26's `seen` is judged against it. */
-    @Volatile var inputsSent = 0
-        private set
+    val inputsSent: Int get() = inputs.get()
 
     fun start() {
         send(Kind.HELLO, encodePayload(Hello(appVersion, null, 1, deviceName)))
@@ -78,9 +81,13 @@ class Session(
     fun send(kind: Int, payload: ByteArray = ByteArray(0)) {
         if (closed.get()) return
         val m = Message.of(kind, payload)
-        writer.execute {
-            try { transport.send(m) } catch (e: Exception) { end(e) }
-        }
+        // The session can end on another thread between the check above and here: a closed
+        // session drops what is sent to it rather than throwing at the caller (often the UI).
+        try {
+            writer.execute {
+                try { transport.send(m) } catch (e: Exception) { end(e) }
+            }
+        } catch (_: RejectedExecutionException) {}
     }
 
     fun select(source: StreamSource) = send(Kind.SELECT_SOURCE, encodeSource(source))
@@ -97,18 +104,23 @@ class Session(
     /** Any input but a pointer move: the pending move goes first, so order is kept. */
     fun input(payload: ByteArray) {
         flushMove()
-        inputsSent++
+        inputs.incrementAndGet()
         send(Kind.INPUT, payload)
     }
 
     fun pointerMove(x: Double, y: Double) {
+        if (closed.get()) return
         val p = Input.pointer(PointerAction.MOVE, x, y)
         synchronized(pointerLock) {
             pendingMove = p
             if (moveScheduled) return
             moveScheduled = true
         }
-        timers.schedule({ flushMove() }, 8, TimeUnit.MILLISECONDS)
+        try {
+            timers.schedule({ flushMove() }, 8, TimeUnit.MILLISECONDS)
+        } catch (_: RejectedExecutionException) {
+            synchronized(pointerLock) { moveScheduled = false; pendingMove = null }
+        }
     }
 
     private fun flushMove() {
@@ -118,7 +130,7 @@ class Session(
             p = pendingMove ?: return
             pendingMove = null
         }
-        inputsSent++
+        inputs.incrementAndGet()
         send(Kind.INPUT, p)
     }
 

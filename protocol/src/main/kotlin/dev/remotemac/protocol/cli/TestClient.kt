@@ -18,6 +18,7 @@ import dev.remotemac.protocol.PointerAction
 import dev.remotemac.protocol.Session
 import dev.remotemac.protocol.SessionListener
 import dev.remotemac.protocol.SignedMacInfo
+import dev.remotemac.protocol.SillParity
 import dev.remotemac.protocol.StreamSource
 import dev.remotemac.protocol.Transport
 import dev.remotemac.protocol.Viewport
@@ -53,7 +54,13 @@ fun main(args: Array<String>) {
         }
         args.contains("--ask") -> println("ask: ${PairingClient.ask(host, port, identity, "Test Android", "JVM", false)}")
         opt("--code") != null -> {
-            val out = PairingClient.pair(host, port, identity, PairingClient.Secret.Code(opt("--code")!!), null, "Test Android", "JVM")
+            // --pinned: ask first, as the app does, so the code's key is derived before dialing.
+            val pin = if (args.contains("--pinned")) {
+                (PairingClient.ask(host, port, identity, "Test Android", "JVM", false) as? PairingClient.Outcome.Refused)?.macFingerprint
+            } else null
+            val t0 = System.nanoTime()
+            val out = PairingClient.pair(host, port, identity, PairingClient.Secret.Code(opt("--code")!!), pin, "Test Android", "JVM")
+            println("pair took ${(System.nanoTime() - t0) / 1_000_000} ms, pinned=${pin != null}")
             println("pairing: $out")
             if (out is PairingClient.Outcome.Paired) pinFile.writeText(Base64URL.encode(out.macFingerprint))
         }
@@ -73,7 +80,7 @@ fun main(args: Array<String>) {
     var keyframes = 0
     var bytes = 0L
     var lastList: WindowList? = null
-    session = Session(transport, "Test Android (JVM)", "1.0", object : SessionListener {
+    session = Session(transport, "Test Android (JVM)", SillParity.VERSION, object : SessionListener {
         override fun onWindowList(list: WindowList) {
             println("window list: ${list.macName} ${list.windows.size} windows active=${list.active} host=${list.hostVersion} gestures=${list.gestures} clipboard=${list.clipboard}")
             if (lastList == null) {

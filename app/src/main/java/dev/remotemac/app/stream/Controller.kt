@@ -39,6 +39,7 @@ import dev.remotemac.protocol.PressMenuItem
 import dev.remotemac.protocol.Session
 import dev.remotemac.protocol.SessionListener
 import dev.remotemac.protocol.SignedMacInfo
+import dev.remotemac.protocol.SillParity
 import dev.remotemac.protocol.StreamSource
 import dev.remotemac.protocol.TrackpadGesture
 import dev.remotemac.protocol.Transport
@@ -173,7 +174,7 @@ class Controller(private val context: Context) {
     val shareClipboard = MutableStateFlow(prefs().getBoolean("shareClipboard", true))
     val gesturesOn = MutableStateFlow(prefs().getBoolean("gestures", true))
 
-    private var session: Session? = null
+    @Volatile private var session: Session? = null
     private var sessionPin: ByteArray? = null
     private var sessionSaved: SavedMac? = null
     private var firstList = true
@@ -190,6 +191,25 @@ class Controller(private val context: Context) {
 
     init {
         decoder.onVideoSize = { w, h -> _videoSize.value = w to h }
+        decoder.onStall = { main.post { resync() } }
+    }
+
+    private var lastResync = 0L
+
+    /**
+     * The decoder lost a frame and waits for a keyframe, which the Mac sends on its own only every
+     * few seconds while the picture moves. Picking the source that already streams restarts the
+     * Mac's pipeline, which starts with a keyframe. At most once every 5 s.
+     */
+    private fun resync() {
+        val s = session ?: return
+        val active = _windows.value?.active ?: return
+        if (active == StreamSource.None) return
+        val now = System.currentTimeMillis()
+        if (now - lastResync < 5_000) return
+        lastResync = now
+        Log.i(TAG, "decoder lost a frame; restarting the stream for a keyframe")
+        s.select(active)
     }
 
     private fun prefs() = context.getSharedPreferences("app", Context.MODE_PRIVATE)
@@ -255,7 +275,7 @@ class Controller(private val context: Context) {
             }
             is Target.Address -> {
                 if (t.plain) return Triple(Transport.plain(t.host, t.port), null, null)
-                val s = saved.all.value.firstOrNull { !it.revoked && it.lastWorked == "${t.host}:${t.port}" }
+                val s = saved.all.value.firstOrNull { !it.revoked && it.lastWorked == ParsedAddress(t.host, t.port).text }
                 val tr = Transport.tls(t.host, t.port, id, Alpn.SESSION, s?.pin)
                 Triple(tr, tr.peerFingerprint, s ?: tr.peerFingerprint?.let { saved.byFingerprint(it) })
             }
@@ -266,30 +286,44 @@ class Controller(private val context: Context) {
         }
     }
 
-    /** Every way to the Mac from afar, a second apart; the first handshake wins. */
+    /**
+     * Every way to the Mac from afar, a second apart; the first handshake wins. Once the race is
+     * decided (a winner, every attempt failed, the 20 s limit, or the dial cancelled), the
+     * deferred is closed, so a handshake that finishes later finds it taken and closes its own
+     * connection instead of leaving it open on the Mac.
+     */
     private suspend fun raceRemote(mac: SavedMac, id: dev.remotemac.protocol.Identity): Transport {
         val candidates = remoteCandidates(mac)
         if (candidates.isEmpty()) error("no address for ${mac.name}: pair it at home with Remote Access on, or add its address")
         val winner = CompletableDeferred<Pair<Transport, String>>()
-        val errors = ArrayList<Throwable>()
+        val failures = AtomicInteger(0)
         val jobs = candidates.mapIndexed { i, (host, port) ->
             scope.launch(Dispatchers.IO) {
                 delay(i * 1000L)
                 if (winner.isCompleted) return@launch
                 try {
                     val tr = Transport.tls(host, port, id, Alpn.SESSION, mac.pin)
-                    if (!winner.complete(tr to "$host:$port")) tr.close()
+                    if (!winner.complete(tr to ParsedAddress(host, port).text)) tr.close()
                 } catch (e: Exception) {
-                    synchronized(errors) { errors += e }
-                    if (errors.size == candidates.size) winner.completeExceptionally(e)
+                    if (failures.incrementAndGet() == candidates.size) winner.completeExceptionally(e)
                 }
             }
         }
-        val got = withTimeoutOrNull(20_000) { winner.await() }
-        jobs.forEach { it.cancel() }
-        got ?: throw java.io.IOException("${mac.name} didn’t answer")
-        saved.update(mac.macID) { it.copy(lastWorked = got.second) }
-        return got.first
+        var got: Pair<Transport, String>? = null
+        try {
+            got = withTimeoutOrNull(20_000) { winner.await() }
+        } finally {
+            jobs.forEach { it.cancel() }
+            // Not taken by us (timeout, failure, cancellation): later winners must close theirs,
+            // and one that won in the instant before this must be closed here.
+            if (got == null && !winner.completeExceptionally(java.util.concurrent.CancellationException("race decided"))) {
+                @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+                runCatching { winner.getCompleted().first.close() }
+            }
+        }
+        val won = got ?: throw java.io.IOException("${mac.name} didn’t answer")
+        saved.update(mac.macID) { it.copy(lastWorked = won.second) }
+        return won.first
     }
 
     private fun remoteCandidates(mac: SavedMac): List<Pair<String, Int>> {
@@ -365,7 +399,7 @@ class Controller(private val context: Context) {
                     PairingClient.pair(p.host, p.port, identities.identity(), PairingClient.Secret.Code(check.code), p.askedKey, shortName, Build.MODEL)
                 }
             }
-            handlePairOutcome(out, p, typedAddress = if (p.row == null) "${p.host}:${p.port}" else null)
+            handlePairOutcome(out, p, typedAddress = if (p.row == null) ParsedAddress(p.host, p.port).text else null)
         }
     }
 
@@ -465,7 +499,7 @@ class Controller(private val context: Context) {
     // The session
 
     private fun startSession(t: Target, transport: Transport, pin: ByteArray?, mac: SavedMac?) {
-        session?.close()
+        session?.let { old -> session = null; old.close() }
         sessionPin = pin
         sessionSaved = mac
         firstList = true
@@ -474,7 +508,9 @@ class Controller(private val context: Context) {
             is Target.Remote -> remoteRoute(transport)
             else -> if (transport.isTls) null else "unencrypted"
         }
-        val s = Session(transport, deviceName, APP_VERSION, listener)
+        val events = SessionEvents()
+        val s = Session(transport, deviceName, SillParity.VERSION, events)
+        events.me = s
         session = s
         s.start()
         // A session counts as connected only at its first window list (within 10 s).
@@ -491,10 +527,21 @@ class Controller(private val context: Context) {
         return if (a.startsWith("100.") || a.startsWith("fd7a:115c:a1e0")) "through Tailscale" else "from afar"
     }
 
-    private val listener = object : SessionListener {
-        override fun onWindowList(list: WindowList) = main.post { windowList(list) }.let {}
+    /**
+     * One session's events. Each session gets its own, and every callback first checks that its
+     * session is still the current one, so a session that ended (or was replaced) cannot touch
+     * the next one's state: its late end, window list or frames are dropped.
+     */
+    private inner class SessionEvents : SessionListener {
+        @Volatile var me: Session? = null
+        private val live get() = me != null && session === me
 
-        override fun onHostSettings(state: HostSettingsState) = main.post {
+        /** On the main thread, and only while this session is still the current one. */
+        private fun onMain(block: () -> Unit) { main.post { if (live) block() } }
+
+        override fun onWindowList(list: WindowList) = onMain { windowList(list) }
+
+        override fun onHostSettings(state: HostSettingsState) = onMain {
             _settings.value = state
             val pending = _settingsPending.value
             if (pending != null && state.answering != null && state.answering!! >= (pending.token ?: 0)) {
@@ -504,9 +551,10 @@ class Controller(private val context: Context) {
                 if (refused) _notices.tryEmit("The Mac kept its setting.")
                 _settingsPending.value = null
             }
-        }.let {}
+        }
 
         override fun onMacInfo(info: SignedMacInfo) {
+            if (!live) return
             val (mi, fp) = info.verified() ?: return
             // Only the key this very connection proved names this Mac.
             if (sessionPin == null || !fp.contentEquals(sessionPin)) return
@@ -514,39 +562,42 @@ class Controller(private val context: Context) {
         }
 
         override fun onThumbnail(t: Blobs.Thumbnail) {
+            if (!live) return
             val bmp = BitmapFactory.decodeByteArray(t.jpeg, 0, t.jpeg.size) ?: return
             _thumbnails.value = _thumbnails.value + (t.windowID to bmp.asImageBitmap())
         }
 
         override fun onAppIcon(icon: Blobs.Icon) {
+            if (!live) return
             val bmp = BitmapFactory.decodeByteArray(icon.png, 0, icon.png.size) ?: return
             _icons.value = _icons.value + (icon.bundleID to bmp.asImageBitmap())
         }
 
-        override fun onAppList(apps: List<AppInfo>) { _apps.value = apps.sortedBy { it.name.lowercase() } }
+        override fun onAppList(apps: List<AppInfo>) { if (live) _apps.value = apps.sortedBy { it.name.lowercase() } }
 
         override fun onCursorShape(c: Blobs.Cursor) {
+            if (!live) return
             val bmp = BitmapFactory.decodeByteArray(c.png, 0, c.png.size) ?: return
             _cursor.value = CursorImage(bmp.asImageBitmap(), c.hotX, c.hotY, c.width, c.height)
         }
 
-        override fun onParameterSets(ps: ParameterSets) { decoder.parameterSets(ps) }
+        override fun onParameterSets(ps: ParameterSets) { if (live) decoder.parameterSets(ps) }
 
-        override fun onFrame(accessUnit: ByteArray, keyframe: Boolean, timestamp: Double) { decoder.frame(accessUnit, keyframe) }
+        override fun onFrame(accessUnit: ByteArray, keyframe: Boolean, timestamp: Double) { if (live) decoder.frame(accessUnit, keyframe) }
 
         override fun onMacPointer(p: MacPointer) {
-            val s = session ?: return
+            val s = me?.takeIf { live } ?: return
             if ((p.seen ?: 0) < s.inputsSent) return // built before the Mac read our latest input
             val x = p.x; val y = p.y
             _macPointer.value = if (p.inside == true && x != null && y != null) x to y else null
         }
 
-        override fun onMacMenu(m: MacMenu) = main.post { macMenu(m) }.let {}
+        override fun onMacMenu(m: MacMenu) = onMain { macMenu(m) }
 
         override fun onClipboard(c: Clipboard) {
             val text = c.text ?: return
             if (!shareClipboard.value) return
-            main.post {
+            onMain {
                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 ignoreNextLocalClip = text
                 cm.setPrimaryClip(ClipData.newPlainText("Mac", text))
@@ -554,20 +605,25 @@ class Controller(private val context: Context) {
             }
         }
 
-        override fun onClipboardReceipt(token: ByteArray) = main.post {
+        override fun onClipboardReceipt(token: ByteArray) = onMain {
             receipts.remove(Base64URL.encode(token))?.let { main.removeCallbacks(it); _clipboardNote.value = "Sent to the Mac’s clipboard. Press ⌘V there." }
-        }.let {}
+        }
 
-        override fun onGoodbye(g: Goodbye) { lastGoodbye = g }
+        override fun onGoodbye(g: Goodbye) { if (live) lastGoodbye = g }
 
-        override fun onStats(fps: Int, frameAgeMs: Int, rttMs: Int) { _stats.value = LinkStats(fps, frameAgeMs, rttMs) }
+        override fun onStats(fps: Int, frameAgeMs: Int, rttMs: Int) { if (live) _stats.value = LinkStats(fps, frameAgeMs, rttMs) }
 
-        override fun onEnded(error: Throwable?) = main.post { sessionEnded(error) }.let {}
+        // Ended: only the current session's end decides anything (a replaced or disconnected
+        // session has already been let go of).
+        override fun onEnded(error: Throwable?) = onMain { sessionEnded(error) }
     }
 
     private fun windowList(list: WindowList) {
         val s = session ?: return
         _windows.value = list
+        // Thumbnails of windows that closed go with them.
+        val open = list.windows.mapTo(HashSet()) { it.id }
+        if (_thumbnails.value.keys.any { it !in open }) _thumbnails.value = _thumbnails.value.filterKeys { it in open }
         if (firstList) {
             firstList = false
             _phase.value = Phase.CONNECTED
@@ -632,7 +688,12 @@ class Controller(private val context: Context) {
         scheduleReconnect(if (g?.reason == "quit") 3_000 else 0)
     }
 
-    private fun goodbyeWords(g: Goodbye, name: String): String = g.message?.let { dev.remotemac.protocol.SafeText.label(it, 300) }?.takeIf { it.isNotEmpty() }
+    // An update notice is the one goodbye in this app's own words: the Mac's speak of Sill and the
+    // App Store, and its version is Sill's (SillParity), not this app's.
+    private fun goodbyeWords(g: Goodbye, name: String): String = if (g.reason == "update") {
+        val min = g.minimumVersion?.let { dev.remotemac.protocol.SafeText.label(it, 32) }?.takeIf { it.isNotEmpty() }
+        "$name needs a newer version of this app" + (min?.let { " (Sill $it protocol or later)" } ?: "") + ". Update it to keep using $name."
+    } else g.message?.let { dev.remotemac.protocol.SafeText.label(it, 300) }?.takeIf { it.isNotEmpty() }
         ?: when (g.reason) {
             "quit" -> "$name quit Sill."
             "removed" -> "$name removed this device. Tap it to pair again."
@@ -640,7 +701,6 @@ class Controller(private val context: Context) {
             "remoteOff" -> "Remote Access is off on $name."
             "internetOff" -> "$name no longer allows connections from the internet."
             "busy" -> "$name has too many devices connected."
-            "update" -> "Update this app to keep using $name."
             else -> "$name ended the session."
         }
 
@@ -690,8 +750,9 @@ class Controller(private val context: Context) {
         userEnded = true
         reconnectJob?.cancel()
         dialJob?.cancel()
-        session?.close()
+        val s = session
         session = null
+        s?.close()
         resetCatalog()
         _phase.value = Phase.IDLE
         _status.value = null
@@ -739,16 +800,28 @@ class Controller(private val context: Context) {
     fun text(t: String) = session?.input(Input.text(t))
     fun key(usage: Int, down: Boolean, mods: Long) = session?.input(Input.key(usage, down, mods))
 
-    /** A shortcut as a keyboard sends it: its modifiers' own keys down, the key, then them up. */
-    fun chord(usage: Int, mods: Long) {
+    /**
+     * [action] with [mods] held as a keyboard holds them: each modifier's own key goes down
+     * (carrying the flags held so far), then [action], then the keys come up in reverse, each up
+     * carrying the flags still held. Shortcuts and latched clicks both go through here.
+     */
+    fun withModifiers(mods: Long, action: () -> Unit) {
+        val release = holdModifiers(mods)
+        action()
+        release()
+    }
+
+    /** The modifier keys of [mods] down now; the returned function lets them up again. */
+    fun holdModifiers(mods: Long): () -> Unit {
         val keys = HidKeys.modifierKeys(mods)
         keys.forEach { (k, held) -> key(k, true, held) }
+        return { for (i in keys.indices.reversed()) key(keys[i].first, false, if (i > 0) keys[i - 1].second else 0L) }
+    }
+
+    /** A shortcut as a keyboard sends it: its modifiers' own keys down, the key, then them up. */
+    fun chord(usage: Int, mods: Long) = withModifiers(mods) {
         key(usage, true, mods)
         key(usage, false, mods)
-        keys.reversed().forEachIndexed { i, (k, _) ->
-            val remaining = keys.dropLast(i + 1).fold(0L) { acc, p -> acc or (p.second) }
-            key(k, false, remaining)
-        }
     }
 
     fun gesture(name: String, fingers: Int) {
@@ -833,7 +906,6 @@ class Controller(private val context: Context) {
     val isConnected get() = _phase.value == Phase.CONNECTED
 
     companion object {
-        const val APP_VERSION = "1.0"
         private const val TAG = "Controller"
     }
 }

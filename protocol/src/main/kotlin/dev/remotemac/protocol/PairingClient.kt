@@ -49,12 +49,16 @@ object PairingClient {
         deviceName: String,
         model: String?,
     ): Outcome {
+        // The Mac wants the request within 10 s of the connection, and the code's key takes
+        // 600,000 rounds: derive it first whenever the Mac's key is already known (a pinned dial,
+        // as after an ask), so a slow phone never spends that time inside the Mac's window.
+        val early = if (secret is Secret.Code && pin != null) PairingProof.codeKey(secret.code, pin) else null
         val t = Transport.tls(host, port, identity, Alpn.PAIRING, pin)
         try {
             val macFp = t.peerFingerprint ?: throw IOException("no key from the Mac")
             val key = when (secret) {
                 is Secret.Link -> secret.secret
-                is Secret.Code -> PairingProof.codeKey(secret.code, macFp)
+                is Secret.Code -> early ?: PairingProof.codeKey(secret.code, macFp)
             }
             val proof = PairingProof.deviceProof(key, identity.fingerprint, macFp)
             val method = if (secret is Secret.Link) PairRequest.QR else PairRequest.CODE
