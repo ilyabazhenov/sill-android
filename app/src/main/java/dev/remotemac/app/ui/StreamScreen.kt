@@ -1,5 +1,19 @@
 package dev.remotemac.app.ui
 
+import android.content.res.Configuration
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalConfiguration
 import android.view.HapticFeedbackConstants
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -35,6 +49,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.DesktopMac
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.DropdownMenu
@@ -48,6 +63,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,6 +110,7 @@ import kotlin.math.roundToInt
 private val BarColor = Color(0xFF15171C)
 private val ChipColor = Color(0xFF262A33)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StreamScreen(c: Controller, activity: MainActivity) {
     val view = LocalView.current
@@ -111,6 +128,18 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
     var scale by remember { mutableStateOf<Double?>(null) }
     val trackCursor = remember { mutableStateOf(0.5 to 0.5) }
     val showStats = remember { mutableStateOf(false) }
+    val trackpadMode by c.trackpadMode.collectAsState()
+    /** Window y where the key row over the keyboard begins: the picture is lifted to clear it. */
+    var keysTop by remember { mutableStateOf<Float?>(null) }
+
+    // A click into text brings up the keyboard, unless a hardware one is there to type on.
+    val config = LocalConfiguration.current
+    val hardKeyboard = config.keyboard != Configuration.KEYBOARD_NOKEYS && config.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO
+    LaunchedEffect(hardKeyboard) { if (!hardKeyboard) c.clickedIntoText.collect { keyboardUp = true } }
+    // The keyboard put away by the system (Back, its own hide key) is closed here too.
+    val imeUp = WindowInsets.isImeVisible
+    var imeSeen by remember { mutableStateOf(false) }
+    LaunchedEffect(imeUp) { if (imeUp) imeSeen = true else if (imeSeen) { imeSeen = false; keyboardUp = false } }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         val portrait = maxHeight > maxWidth && maxWidth < 600.dp
@@ -118,7 +147,7 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
             if (portrait) {
                 Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                     Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f)) {
-                        VideoPane(c, latch, scope, scale, trackCursor.value, showStats.value)
+                        VideoPane(c, latch, scope, scale, trackCursor.value, showStats.value, null)
                     }
                     ButtonRow(c, keyboardUp, onKeyboard = { keyboardUp = !keyboardUp }, onSheet = { sheet = it }, scale = scale, onScale = { scale = it })
                     WindowStrip(c, Modifier.fillMaxWidth().height(64.dp))
@@ -127,22 +156,40 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                     if (keyboardUp) Spacer(Modifier.height(1.dp))
                 }
             } else {
-                Column(Modifier.fillMaxSize()) {
+                // The picture keeps its room with the keyboard up (the Mac sizes its windows to that
+                // room); it is lifted instead. The bar and the key row come after it so they draw over
+                // the part lifted out of its room.
+                val barInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                Box(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize()) {
+                        Spacer(Modifier.fillMaxWidth().windowInsetsPadding(barInsets).height(64.dp))
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            VideoPane(
+                                c, latch, scope, scale, if (trackpadMode) trackCursor.value else null, showStats.value,
+                                trackCursor.takeIf { trackpadMode }, visibleBottom = if (keyboardUp) keysTop else null,
+                            )
+                        }
+                    }
                     Row(
-                        Modifier.fillMaxWidth().background(BarColor).safeDrawingPadding().height(64.dp).padding(horizontal = 8.dp),
+                        Modifier.fillMaxWidth().background(BarColor).windowInsetsPadding(barInsets).height(64.dp).padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         BarButton(Icons.Default.Apps, "Apps") { sheet = Sheet.APPS }
                         WindowStrip(c, Modifier.weight(1f).fillMaxHeight())
                         MenusButton(c) { sheet = Sheet.MENUS }
                         ScaleButton(scale) { scale = it }
+                        BarButton(Icons.Default.Mouse, if (trackpadMode) "Trackpad: on" else "Trackpad: off", lit = trackpadMode) { c.setTrackpadMode(!trackpadMode) }
                         BarButton(Icons.Default.Keyboard, "Keyboard", lit = keyboardUp) { keyboardUp = !keyboardUp }
                         BarButton(Icons.Default.DesktopMac, "Desktop", lit = windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
                         BarButton(Icons.Default.Settings, "Settings") { sheet = Sheet.SETTINGS }
                     }
-                    if (keyboardUp) KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
-                        VideoPane(c, latch, scope, scale, null, showStats.value)
+                    if (keyboardUp) {
+                        KeyRow(
+                            c, latch, latchState.value,
+                            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                                .onGloballyPositioned { keysTop = it.positionInWindow().y },
+                        )
                     }
                 }
             }
@@ -170,7 +217,11 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
 
 enum class Sheet { SETTINGS, APPS, MENUS }
 
-/** The Mac's picture, letterboxed, with direct touch on it and the Mac's pointer drawn over it. */
+/**
+ * The Mac's picture, letterboxed, with the Mac's pointer drawn over it. Touch on it is direct, or,
+ * given a [trackpad] cursor, relative: the picture works as a trackpad moving that cursor. Given a
+ * [visibleBottom] (window y) inside it, the picture is lifted to keep the last click above it.
+ */
 @Composable
 private fun VideoPane(
     c: Controller,
@@ -179,16 +230,38 @@ private fun VideoPane(
     scale: Double?,
     ownPointer: Pair<Double, Double>?,
     showStats: Boolean,
+    trackpad: androidx.compose.runtime.MutableState<Pair<Double, Double>>?,
+    visibleBottom: Float? = null,
 ) {
     val videoSize by c.videoSize.collectAsState()
     val macPointer by c.macPointer.collectAsState()
     val cursor by c.cursor.collectAsState()
     val settings by c.settings.collectAsState()
     val target by c.target.collectAsState()
+    val lastClick by c.lastClick.collectAsState()
     val density = LocalDensity.current
     var box by remember { mutableStateOf(IntSize.Zero) }
-    val rect = videoSize?.let { (w, h) -> VideoRect.fit(box.width.toFloat(), box.height.toFloat(), w, h) }
+    var boxTop by remember { mutableFloatStateOf(0f) }
+    val fit = videoSize?.let { (w, h) -> VideoRect.fit(box.width.toFloat(), box.height.toFloat(), w, h) }
         ?: VideoRect(0f, 0f, box.width.toFloat(), box.height.toFloat())
+
+    // Lifted so the last click (the text field being typed into) sits in sight above the keys: moved
+    // only as far as that needs, and never so far that the picture's bottom edge clears the keys.
+    val lift = remember { mutableFloatStateOf(0f) }
+    val wantLift = run {
+        val bottom = (visibleBottom ?: return@run 0f) - boxTop
+        if (bottom >= box.height) return@run 0f
+        val at = lastClick ?: macPointer ?: (0.5 to 0.5)
+        val y = fit.top + at.second.toFloat() * fit.height
+        val margin = with(density) { 24.dp.toPx() }
+        val lo = y - (bottom - maxOf(2 * margin, bottom * 0.35f))
+        val hi = y - margin
+        val l = if (lo >= hi) lo else lift.floatValue.coerceIn(lo, hi)
+        l.coerceIn(0f, maxOf(0f, fit.top + fit.height - bottom))
+    }
+    SideEffect { lift.floatValue = wantLift }
+    val lifted by animateFloatAsState(wantLift, label = "lift")
+    val rect = if (lifted == 0f) fit else fit.copy(top = fit.top - lifted)
     val rectRef = remember { mutableStateOf<VideoRect?>(null) }
     rectRef.value = if (box.width > 0) rect else null
 
@@ -211,7 +284,7 @@ private fun VideoPane(
         }
     }
 
-    Box(Modifier.fillMaxSize().onSizeChanged { box = it }) {
+    Box(Modifier.fillMaxSize().onSizeChanged { box = it }.onGloballyPositioned { boxTop = it.positionInWindow().y }) {
         val w = with(density) { rect.width.toDp() }
         val h = with(density) { rect.height.toDp() }
         AndroidView(
@@ -226,7 +299,19 @@ private fun VideoPane(
                 }
             },
         )
-        Box(Modifier.fillMaxSize().directInput(c, { rectRef.value }, latch, scope))
+        key(trackpad != null) {
+            if (trackpad != null) {
+                // The pointer carries on from wherever the Mac's pointer last was.
+                LaunchedEffect(macPointer) { macPointer?.let { trackpad.value = it } }
+                Box(
+                    Modifier.fillMaxSize()
+                        .trackpadInput(c, { rectRef.value?.let { it.width to it.height } ?: (1f to 1f) }, trackpad, latch, scope) { rectRef.value }
+                        .hoverInput(c) { rectRef.value },
+                )
+            } else {
+                Box(Modifier.fillMaxSize().directInput(c, { rectRef.value }, latch, scope))
+            }
+        }
 
         val at = macPointer ?: ownPointer
         val cur = cursor

@@ -21,6 +21,7 @@ import dev.remotemac.protocol.AppInfo
 import dev.remotemac.protocol.Base64URL
 import dev.remotemac.protocol.Blobs
 import dev.remotemac.protocol.Clipboard
+import dev.remotemac.protocol.CursorShape
 import dev.remotemac.protocol.FetchMenu
 import dev.remotemac.protocol.Goodbye
 import dev.remotemac.protocol.HomeDoor
@@ -57,6 +58,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -104,7 +106,8 @@ data class MenuState(
     val items: Map<String, List<MacMenuItem>> = emptyMap(),
 )
 
-data class CursorImage(val image: ImageBitmap, val hotX: Float, val hotY: Float, val width: Float, val height: Float)
+/** The Mac's cursor; [text] when it is the I-beam, the pointer over text. */
+data class CursorImage(val image: ImageBitmap, val hotX: Float, val hotY: Float, val width: Float, val height: Float, val text: Boolean = false)
 
 data class LinkStats(val fps: Int = 0, val frameAgeMs: Int = -1, val rttMs: Int = -1)
 
@@ -173,6 +176,18 @@ class Controller(private val context: Context) {
 
     val shareClipboard = MutableStateFlow(prefs().getBoolean("shareClipboard", true))
     val gesturesOn = MutableStateFlow(prefs().getBoolean("gestures", true))
+    /** Landscape: the picture is a trackpad (relative pointer) rather than direct touch. */
+    val trackpadMode = MutableStateFlow(prefs().getBoolean("trackpadMode", false))
+    /** A click that lands in text brings up the software keyboard. */
+    val autoKeyboard = MutableStateFlow(prefs().getBoolean("autoKeyboard", true))
+
+    private val _lastClick = MutableStateFlow<Pair<Double, Double>?>(null)
+    /** Where the last plain click landed (frame fractions): the spot the keyboard keeps in sight. */
+    val lastClick: StateFlow<Pair<Double, Double>?> = _lastClick
+    private val _clickedIntoText = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** A plain click that left the Mac's pointer an I-beam: a click into a text field. */
+    val clickedIntoText: SharedFlow<Unit> = _clickedIntoText
+    private var textWatch: Job? = null
 
     @Volatile private var session: Session? = null
     private var sessionPin: ByteArray? = null
@@ -223,6 +238,16 @@ class Controller(private val context: Context) {
     fun setGestures(on: Boolean) {
         gesturesOn.value = on
         prefs().edit().putBoolean("gestures", on).apply()
+    }
+
+    fun setTrackpadMode(on: Boolean) {
+        trackpadMode.value = on
+        prefs().edit().putBoolean("trackpadMode", on).apply()
+    }
+
+    fun setAutoKeyboard(on: Boolean) {
+        autoKeyboard.value = on
+        prefs().edit().putBoolean("autoKeyboard", on).apply()
     }
 
     // =============================================================================================
@@ -578,7 +603,7 @@ class Controller(private val context: Context) {
         override fun onCursorShape(c: Blobs.Cursor) {
             if (!live) return
             val bmp = BitmapFactory.decodeByteArray(c.png, 0, c.png.size) ?: return
-            _cursor.value = CursorImage(bmp.asImageBitmap(), c.hotX, c.hotY, c.width, c.height)
+            _cursor.value = CursorImage(bmp.asImageBitmap(), c.hotX, c.hotY, c.width, c.height, isIBeam(bmp, c))
         }
 
         override fun onParameterSets(ps: ParameterSets) { if (live) decoder.parameterSets(ps) }
@@ -741,6 +766,7 @@ class Controller(private val context: Context) {
         _settingsPending.value = null
         _menus.value = MenuState()
         _macPointer.value = null
+        _lastClick.value = null
         _videoSize.value = null
         _route.value = null
         _stats.value = LinkStats()
@@ -793,6 +819,23 @@ class Controller(private val context: Context) {
     fun move(x: Double, y: Double) {
         _macPointer.value = null
         session?.pointerMove(x, y)
+    }
+
+    /**
+     * A plain left click at [x], [y], already sent: remembered, and watched for landing in text.
+     * The cursor's shape follows the pointer through the host's 20 Hz poll and the link, so it gets
+     * a round trip to settle at the new spot (an I-beam left over from the last field must not
+     * count), then a little longer to turn into one.
+     */
+    fun clicked(x: Double, y: Double) {
+        _lastClick.value = x to y
+        textWatch?.cancel()
+        if (!autoKeyboard.value) return
+        textWatch = scope.launch {
+            delay(250L + _stats.value.rttMs.coerceIn(0, 500))
+            withTimeoutOrNull(600) { _cursor.first { it?.text == true } } ?: return@launch
+            _clickedIntoText.tryEmit(Unit)
+        }
     }
 
     fun scroll(x: Double, y: Double, dx: Double, dy: Double) = session?.input(Input.scroll(x, y, dx, dy))
@@ -908,4 +951,14 @@ class Controller(private val context: Context) {
     companion object {
         private const val TAG = "Controller"
     }
+}
+
+private fun isIBeam(bmp: android.graphics.Bitmap, c: Blobs.Cursor): Boolean {
+    val w = bmp.width
+    val h = bmp.height
+    if (w * h > 512 * 512 || c.width <= 0f || c.height <= 0f) return false
+    val px = IntArray(w * h)
+    bmp.getPixels(px, 0, w, 0, 0, w, h)
+    val opaque = BooleanArray(px.size) { (px[it] ushr 24) > 128 }
+    return CursorShape.isIBeam(opaque, w, h, c.hotX * w / c.width, c.hotY * h / c.height)
 }

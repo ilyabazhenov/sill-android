@@ -236,14 +236,18 @@ fun Modifier.directInput(c: Controller, rect: () -> VideoRect?, latch: ModifierL
                             if (maxFingers >= 2) { c.pointer(PointerAction.RIGHT_DOWN, x, y); c.pointer(PointerAction.RIGHT_UP, x, y) }
                             else { c.pointer(PointerAction.LEFT_DOWN, x, y); c.pointer(PointerAction.LEFT_UP, x, y) }
                         }
+                        if (maxFingers == 1) c.clicked(x, y)
                     }
                     return@awaitEachGesture
                 }
             }
         }
     }
+    .hoverInput(c, rect)
+
+/** Hover (a mouse, a trackpad or a stylus above the glass) and the wheel, at the absolute spot. */
+fun Modifier.hoverInput(c: Controller, rect: () -> VideoRect?): Modifier = this
     .pointerInput(Unit) {
-        // Hover (a mouse, a trackpad or a stylus above the glass) and the wheel.
         awaitPointerEventScope {
             while (true) {
                 val e = awaitPointerEvent(PointerEventPass.Initial)
@@ -287,15 +291,17 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.mou
     }
     c.pointer(if (secondary) PointerAction.RIGHT_UP else PointerAction.LEFT_UP, last.first, last.second)
     releaseModifiers()
+    if (!secondary && hypot(last.first - x, last.second - y) < 0.005) c.clicked(x, y)
 }
 
 /** Set by the screen so a long press can buzz without a View in the gesture code. */
 var hapticLong: () -> Unit = {}
 
 /**
- * The trackpad (a phone held upright): one finger moves the Mac's pointer from where it is, a tap
- * clicks, two fingers tap for a right click and pan to scroll, a long press then drag holds the
- * button down, three or four fingers make the Mac's gestures.
+ * The trackpad (the pad under an upright phone's picture, or the picture itself in trackpad mode):
+ * one finger moves the Mac's pointer from where it is, a tap clicks, two fingers tap for a right
+ * click and pan to scroll, a long press then drag holds the button down, three or four fingers make
+ * the Mac's gestures. Given the picture's [rect], a mouse or stylus there still points absolutely.
  */
 fun Modifier.trackpadInput(
     c: Controller,
@@ -303,11 +309,16 @@ fun Modifier.trackpadInput(
     cursor: MutableState<Pair<Double, Double>>,
     latch: ModifierLatch,
     scope: CoroutineScope,
+    rect: (() -> VideoRect?)? = null,
 ): Modifier = this.pointerInput(Unit) {
     val momentum = Momentum(scope, c, density)
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         momentum.stop()
+        if (rect != null && (down.type == PointerType.Mouse || down.type == PointerType.Stylus)) {
+            mouseGesture(c, rect, down, latch)
+            return@awaitEachGesture
+        }
         val startTime = android.os.SystemClock.uptimeMillis()
         val start = HashMap<Long, Offset>().apply { put(down.id.value, down.position) }
         var last = HashMap<Long, Offset>().apply { put(down.id.value, down.position) }
@@ -409,6 +420,7 @@ fun Modifier.trackpadInput(
                         c.pointer(PointerAction.LEFT_DOWN, cursor.value.first, cursor.value.second)
                         c.pointer(PointerAction.LEFT_UP, cursor.value.first, cursor.value.second)
                     }
+                    c.clicked(cursor.value.first, cursor.value.second)
                 }
                 return@awaitEachGesture
             }

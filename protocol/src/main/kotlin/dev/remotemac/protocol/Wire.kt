@@ -6,6 +6,16 @@ import java.io.IOException
 import java.nio.ByteBuffer
 
 /**
+ * The Sill for iPhone and iPad release whose protocol this client matches, sent as the hello's
+ * `appVersion`. A host judges devices by it (SillHost/DeviceGate.swift: a floor it raises for a
+ * requirement older devices cannot meet), so it names what this client really speaks, never more:
+ * raise it only once the protocol of that Sill release is matched.
+ */
+object SillParity {
+    const val VERSION = "0.5.1"
+}
+
+/**
  * Sill's wire format (reference/sill/Sources/StreamProtocol/StreamMessage.swift).
  * Header, 14 bytes, big endian: kind(1) timestamp(8, IEEE double) isKeyframe(1) payloadLength(4).
  */

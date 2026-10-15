@@ -62,6 +62,8 @@ fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, onDismiss: ()
     val route by c.route.collectAsState()
     val share by c.shareClipboard.collectAsState()
     val gestures by c.gesturesOn.collectAsState()
+    val trackpadMode by c.trackpadMode.collectAsState()
+    val autoKeyboard by c.autoKeyboard.collectAsState()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
             Text(windows?.macName ?: "Mac", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -133,6 +135,8 @@ fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, onDismiss: ()
             Section("This device")
             if ((windows?.clipboard ?: 0) >= 1) ToggleRow("Share clipboard", share, "Text copied on the Mac arrives here; Paste on Mac sends this device’s.") { c.setShareClipboard(it) }
             if ((windows?.gestures ?: 0) >= 1) ToggleRow("Three-finger gestures", gestures, "Swipe up: Mission Control · down: App Exposé · left/right: Spaces · pinch: Apps · spread: Desktop.") { c.setGestures(it) }
+            ToggleRow("Picture as trackpad", trackpadMode, "Held sideways, drag anywhere on the picture to move the Mac’s pointer; tap to click. Off: touch clicks right where you tap.") { c.setTrackpadMode(it) }
+            ToggleRow("Keyboard for text fields", autoKeyboard, "A click into text on the Mac (where its pointer turns into an I-beam) brings up the keyboard.") { c.setAutoKeyboard(it) }
             ToggleRow("Show link statistics", showStats.value) { showStats.value = it }
 
             Spacer(Modifier.height(20.dp))
