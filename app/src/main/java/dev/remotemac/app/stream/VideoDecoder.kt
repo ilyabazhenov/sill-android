@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
+import dev.remotemac.protocol.HevcSps
 import dev.remotemac.protocol.ParameterSets
 import java.nio.ByteBuffer
 
@@ -84,13 +85,14 @@ class VideoDecoder {
 
     private fun configure(s: Surface, ps: List<ByteArray>) {
         val csd = ByteArray(0).let { acc -> ps.fold(acc) { a, set -> a + START + set } }
-        val f = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_HEVC, 1920, 1080)
+        val (w, h) = ps.firstNotNullOfOrNull { HevcSps.size(it) } ?: (1920 to 1080)
+        onVideoSize?.invoke(w, h)
+        val f = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_HEVC, w, h)
         f.setByteBuffer("csd-0", ByteBuffer.wrap(csd))
         f.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 8 * 1024 * 1024)
         // Ask for the decoder's low-latency mode where it has one (Android 11+).
         f.setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
         f.setInteger(MediaFormat.KEY_PRIORITY, 0)
-        f.setInteger(MediaFormat.KEY_OPERATING_RATE, 120)
         val c = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_HEVC)
         c.configure(f, s, null, 0)
         c.start()

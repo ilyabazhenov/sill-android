@@ -372,7 +372,19 @@ class Controller(private val context: Context) {
     /** Pairing from afar: the Mac's address and the code from its window. */
     fun startRemotePairing(address: String) {
         val a = ParsedAddress.parse(address) ?: run { _status.value = "That isn’t an address."; return }
-        _pairing.value = PairingPrompt(a.host, codeShown = true, host = a.host, port = a.port ?: 7455)
+        val port = a.port ?: 7455
+        _pairing.value = PairingPrompt(a.host, codeShown = true, host = a.host, port = port)
+        // At a home door an ask puts the Mac's code up by itself; a remote door answers "closed"
+        // without counting a try, and the person opens the window on the Mac as before.
+        scope.launch {
+            val out = withContext(Dispatchers.IO) {
+                runCatching { PairingClient.ask(a.host, port, identities.identity(), shortName, Build.MODEL, cable = false) }
+            }.getOrNull()
+            val p = _pairing.value ?: return@launch
+            if (out is PairingClient.Outcome.Refused && out.reason == "shown" && p.host == a.host) {
+                _pairing.value = p.copy(askedKey = out.macFingerprint)
+            }
+        }
     }
 
     /** A `sill://pair` link (the QR code): home rows first, pinned to its key, then its addresses. */

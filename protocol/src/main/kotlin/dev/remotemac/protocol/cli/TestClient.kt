@@ -88,7 +88,7 @@ fun main(args: Array<String>) {
         override fun onMacInfo(info: SignedMacInfo) = println("mac info verified=${info.verified()?.first}")
         override fun onAppList(apps: List<dev.remotemac.protocol.AppInfo>) = println("apps: ${apps.size}")
         override fun onCursorShape(c: Blobs.Cursor) = println("cursor ${c.width}x${c.height} png ${c.png.size}")
-        override fun onParameterSets(ps: ParameterSets) = println("parameter sets: nal=${ps.nalUnitHeaderLength} ${ps.sets.map { it.size }}")
+        override fun onParameterSets(ps: ParameterSets) = println("parameter sets: nal=${ps.nalUnitHeaderLength} ${ps.sets.map { it.size }} size=${ps.sets.firstNotNullOfOrNull { dev.remotemac.protocol.HevcSps.size(it) }}")
         override fun onFrame(accessUnit: ByteArray, keyframe: Boolean, timestamp: Double) {
             frames++; bytes += accessUnit.size; if (keyframe) keyframes++
         }
