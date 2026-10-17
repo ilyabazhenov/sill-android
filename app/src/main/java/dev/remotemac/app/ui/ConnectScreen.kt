@@ -43,10 +43,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.remotemac.app.R
 import dev.remotemac.app.data.SavedMac
+import dev.remotemac.app.security.AppLock
 import dev.remotemac.app.net.FoundMac
 import dev.remotemac.app.stream.Controller
 import dev.remotemac.app.stream.Phase
@@ -55,7 +58,8 @@ import dev.remotemac.protocol.ParsedAddress
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ConnectScreen(controller: Controller, onScan: () -> Unit) {
+fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
+    val lockOn by lock.enabled.collectAsState()
     val found by controller.discovery.macs.collectAsState()
     val savedMacs by controller.saved.all.collectAsState()
     val status by controller.status.collectAsState()
@@ -75,15 +79,15 @@ fun ConnectScreen(controller: Controller, onScan: () -> Unit) {
             ) {
                 item {
                     Spacer(Modifier.height(32.dp))
-                    Text("Remote Mac", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Your Mac’s windows on this device. Needs the free Sill app on the Mac (getsill.app).",
+                        stringResource(R.string.tagline),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(20.dp))
-                    SectionTitle("On this network")
+                    SectionTitle(stringResource(R.string.section_this_network))
                 }
                 if (found.isEmpty()) {
                     item {
@@ -91,7 +95,7 @@ fun ConnectScreen(controller: Controller, onScan: () -> Unit) {
                             if (!browseFailed) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.size(12.dp))
                             Text(
-                                if (browseFailed) "Can’t look for Macs on this network. Check Wi‑Fi." else "Looking for Macs with Sill open…",
+                                if (browseFailed) stringResource(R.string.browse_failed) else stringResource(R.string.browsing),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -109,11 +113,11 @@ fun ConnectScreen(controller: Controller, onScan: () -> Unit) {
                     )
                 }
                 if (away.isNotEmpty()) {
-                    item { Spacer(Modifier.height(12.dp)); SectionTitle("Away from home") }
+                    item { Spacer(Modifier.height(12.dp)); SectionTitle(stringResource(R.string.section_away)) }
                     items(away, key = { "saved:" + it.macID }) { mac ->
                         MacRow(
                             title = mac.name,
-                            word = "Remote",
+                            word = if (mac.relay != null) stringResource(R.string.row_remote_relay) else stringResource(R.string.row_remote),
                             remote = true,
                             busy = phase == Phase.DIALING && controller.target.value?.name == mac.name,
                             onClick = { controller.connectRemote(mac) },
@@ -129,19 +133,32 @@ fun ConnectScreen(controller: Controller, onScan: () -> Unit) {
                     Spacer(Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         FilledTonalButton(onClick = onScan) {
-                            Icon(Icons.Default.QrCodeScanner, null); Spacer(Modifier.size(8.dp)); Text("Scan Pairing Code")
+                            Icon(Icons.Default.QrCodeScanner, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.scan_pairing_code))
                         }
                         OutlinedButton(onClick = { addOpen = true }) {
-                            Icon(Icons.Default.Add, null); Spacer(Modifier.size(8.dp)); Text("Add a Mac…")
+                            Icon(Icons.Default.Add, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.add_mac_more))
                         }
                     }
                     Spacer(Modifier.height(24.dp))
                     Text(
-                        "On the Mac: open Sill, then tap the Mac here. The first time, the Mac shows a code to scan or type. " +
-                            "Away from home, turn on Remote Access in Sill’s settings and use a VPN such as Tailscale.",
+                        stringResource(R.string.connect_help),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (lock.available) {
+                        Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.lock_app), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    stringResource(R.string.lock_app_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(lockOn, onCheckedChange = { lock.setEnabled(it) })
+                        }
+                    }
                     Spacer(Modifier.height(32.dp))
                 }
             }
@@ -152,18 +169,19 @@ fun ConnectScreen(controller: Controller, onScan: () -> Unit) {
     forget?.let { mac ->
         AlertDialog(
             onDismissRequest = { forget = null },
-            title = { Text("Forget ${mac.name}?") },
-            text = { Text("This device will have to pair with it again. Remove this device on the Mac too (Sill › Settings › Devices).") },
-            confirmButton = { TextButton({ controller.saved.forget(mac.macID); forget = null }) { Text("Forget") } },
-            dismissButton = { TextButton({ forget = null }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.forget_title, mac.name)) },
+            text = { Text(stringResource(R.string.forget_body)) },
+            confirmButton = { TextButton({ controller.saved.forget(mac.macID); forget = null }) { Text(stringResource(R.string.forget)) } },
+            dismissButton = { TextButton({ forget = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
 
+@Composable
 private fun rowWord(row: FoundMac, mac: SavedMac?): String = when {
-    row.door == HomeDoor.PLAIN -> "Not encrypted"
-    mac != null -> "Wi‑Fi"
-    else -> "Not paired"
+    row.door == HomeDoor.PLAIN -> stringResource(R.string.row_not_encrypted)
+    mac != null -> stringResource(R.string.row_wifi)
+    else -> stringResource(R.string.row_not_paired)
 }
 
 @Composable
@@ -195,17 +213,16 @@ private fun AddMacDialog(controller: Controller, onDismiss: () -> Unit) {
     var plain by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add a Mac") },
+        title = { Text(stringResource(R.string.add_mac_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "On the Mac choose Pair iPhone or iPad… in Sill’s menu. Type the address its window shows " +
-                        "(a Tailscale name works from anywhere), then its code.",
+                    stringResource(R.string.add_mac_help),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 OutlinedTextField(
                     address, { address = it.trim() },
-                    label = { Text("Address") },
+                    label = { Text(stringResource(R.string.address)) },
                     placeholder = { Text("mac-mini.tail1234.ts.net") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -213,7 +230,7 @@ private fun AddMacDialog(controller: Controller, onDismiss: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(plain, { plain = it })
                     Spacer(Modifier.size(8.dp))
-                    Text("Unencrypted test host (SillHost without --pairing)", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.plain_host), style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -223,8 +240,8 @@ private fun AddMacDialog(controller: Controller, onDismiss: () -> Unit) {
                 if (plain) controller.connectAddress(a.host, a.port ?: 7455, plain = true)
                 else controller.startRemotePairing(address)
                 onDismiss()
-            }) { Text(if (plain) "Connect" else "Next") }
+            }) { Text(if (plain) stringResource(R.string.connect) else stringResource(R.string.next)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

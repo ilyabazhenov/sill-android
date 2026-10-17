@@ -1,7 +1,27 @@
 package dev.remotemac.app.ui
 
 import android.content.res.Configuration
+import android.os.SystemClock
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.ZoomOutMap
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -34,7 +54,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -96,6 +115,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.remotemac.app.MainActivity
+import dev.remotemac.app.R
 import dev.remotemac.app.stream.Controller
 import dev.remotemac.app.stream.HidKeys
 import dev.remotemac.app.stream.Phase
@@ -109,6 +129,11 @@ import kotlin.math.roundToInt
 
 private val BarColor = Color(0xFF15171C)
 private val ChipColor = Color(0xFF262A33)
+private val BarHeight = 64.dp
+/** The key row's height: its keys and the padding around them. */
+private val KeyRowHeight = 48.dp
+/** How long the bar over a sideways picture stays after it was last touched. */
+private const val BAR_HIDE_MS = 4_000L
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -132,6 +157,7 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
     /** Window y where the keyboard begins and where the key row under the bar ends: the picture is lifted between them. */
     var imeTop by remember { mutableStateOf<Float?>(null) }
     var keysBottom by remember { mutableStateOf<Float?>(null) }
+    var leaving by remember { mutableStateOf(false) }
 
     // A click into text brings up the keyboard, unless a hardware one is there to type on.
     val config = LocalConfiguration.current
@@ -144,6 +170,17 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         val portrait = maxHeight > maxWidth && maxWidth < 600.dp
+        // Pinch zoom where the picture has the screen to itself; each new picture starts fitted.
+        val zoom = remember(portrait) { if (portrait) null else PictureZoom() }
+        LaunchedEffect(zoom, windows?.active) { zoom?.reset() }
+        // Back puts the keyboard away, then the zoom, and only then asks to disconnect.
+        BackHandler {
+            when {
+                keyboardUp -> keyboardUp = false
+                zoom?.zoomed == true -> zoom.reset()
+                else -> leaving = true
+            }
+        }
         val content: @Composable () -> Unit = {
             if (portrait) {
                 Column(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -157,39 +194,68 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                     if (keyboardUp) Spacer(Modifier.height(1.dp))
                 }
             } else {
-                // The picture keeps its room with the keyboard up (the Mac sizes its windows to that
-                // room); it is lifted instead. The bar and the key row under it come after it so they
-                // draw over the part lifted out of its room; nothing sits on top of the keyboard.
+                // The picture has the whole screen; the bar floats over its top and slides away a few
+                // seconds after it was last touched, or as soon as the picture is, leaving a handle that
+                // brings it back. The picture keeps its room with the keyboard up too (the Mac sizes its
+                // windows to that room); it is lifted instead. The bar and the key row under it come
+                // after it so they draw over the part lifted out of its room; nothing sits on the keyboard.
                 val barInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                var barShown by remember { mutableStateOf(true) }
+                var barTouched by remember { mutableLongStateOf(0L) }
+                var barMenus by remember { mutableIntStateOf(0) }
+                LaunchedEffect(barShown, barTouched, barMenus, sheet) {
+                    if (barShown && barMenus == 0 && sheet == null) { kotlinx.coroutines.delay(BAR_HIDE_MS); barShown = false }
+                }
+                val onMenu: (Boolean) -> Unit = { open -> barMenus += if (open) 1 else -1 }
+                val barRoom by animateDpAsState(if (barShown) BarHeight else 0.dp, label = "bar")
                 Box(Modifier.fillMaxSize()) {
-                    Column(Modifier.fillMaxSize()) {
-                        Spacer(Modifier.fillMaxWidth().windowInsetsPadding(barInsets).height(64.dp))
-                        Box(Modifier.weight(1f).fillMaxWidth()) {
-                            VideoPane(
-                                c, latch, scope, scale, if (trackpadMode) trackCursor.value else null, showStats.value,
-                                trackCursor.takeIf { trackpadMode }, visibleTop = if (keyboardUp) keysBottom else null,
-                                visibleBottom = if (keyboardUp) imeTop else null,
-                            )
+                    Box(
+                        Modifier.fillMaxSize().pointerInput(Unit) {
+                            awaitEachGesture { awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial); barShown = false }
+                        },
+                    ) {
+                        VideoPane(
+                            c, latch, scope, scale, if (trackpadMode) trackCursor.value else null, showStats.value,
+                            trackCursor.takeIf { trackpadMode }, visibleTop = if (keyboardUp) keysBottom else null,
+                            visibleBottom = if (keyboardUp) imeTop else null, zoom = zoom,
+                        )
+                    }
+                    AnimatedVisibility(
+                        barShown,
+                        enter = slideInVertically { -it } + fadeIn(),
+                        exit = slideOutVertically { -it } + fadeOut(),
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().background(BarColor)
+                                .pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) { awaitPointerEvent(PointerEventPass.Initial); barTouched = SystemClock.uptimeMillis() }
+                                    }
+                                }
+                                .windowInsetsPadding(barInsets).height(BarHeight).padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BarButton(Icons.Default.Apps, stringResource(R.string.apps)) { sheet = Sheet.APPS }
+                            WindowStrip(c, Modifier.weight(1f).fillMaxHeight(), onMenu)
+                            MenusButton(c) { sheet = Sheet.MENUS }
+                            ScaleButton(scale, onMenu) { scale = it }
+                            BarButton(Icons.Default.Mouse, if (trackpadMode) stringResource(R.string.trackpad_on) else stringResource(R.string.trackpad_off), lit = trackpadMode) { c.setTrackpadMode(!trackpadMode) }
+                            BarButton(Icons.Default.Keyboard, stringResource(R.string.keyboard), lit = keyboardUp) { keyboardUp = !keyboardUp }
+                            BarButton(Icons.Default.DesktopMac, stringResource(R.string.desktop), lit = windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
+                            BarButton(Icons.Default.Settings, stringResource(R.string.settings)) { sheet = Sheet.SETTINGS }
                         }
                     }
-                    Row(
-                        Modifier.fillMaxWidth().background(BarColor).windowInsetsPadding(barInsets).height(64.dp).padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        BarButton(Icons.Default.Apps, "Apps") { sheet = Sheet.APPS }
-                        WindowStrip(c, Modifier.weight(1f).fillMaxHeight())
-                        MenusButton(c) { sheet = Sheet.MENUS }
-                        ScaleButton(scale) { scale = it }
-                        BarButton(Icons.Default.Mouse, if (trackpadMode) "Trackpad: on" else "Trackpad: off", lit = trackpadMode) { c.setTrackpadMode(!trackpadMode) }
-                        BarButton(Icons.Default.Keyboard, "Keyboard", lit = keyboardUp) { keyboardUp = !keyboardUp }
-                        BarButton(Icons.Default.DesktopMac, "Desktop", lit = windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
-                        BarButton(Icons.Default.Settings, "Settings") { sheet = Sheet.SETTINGS }
+                    if (!barShown) {
+                        BarHandle(
+                            Modifier.align(Alignment.TopCenter).windowInsetsPadding(barInsets)
+                                .padding(top = if (keyboardUp) KeyRowHeight else 0.dp),
+                        ) { barShown = true }
                     }
                     if (keyboardUp) {
                         KeyRow(
                             c, latch, latchState.value,
                             Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-                                .padding(top = 64.dp).background(BarColor)
+                                .padding(top = barRoom).background(BarColor)
                                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                                 .onGloballyPositioned { keysBottom = it.positionInWindow().y + it.size.height },
                         )
@@ -209,9 +275,20 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
         if (phase == Phase.RECONNECTING) {
             Box(
                 Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(12.dp)).padding(16.dp),
-            ) { Text(status ?: "Reconnecting…", color = Color.White) }
+            ) { Text(status ?: stringResource(R.string.reconnecting), color = Color.White) }
         }
         ClipboardChip(c, Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = 24.dp))
+    }
+
+    if (leaving) {
+        val mac = windows?.macName ?: stringResource(R.string.the_mac)
+        AlertDialog(
+            onDismissRequest = { leaving = false },
+            title = { Text(stringResource(R.string.disconnect_title, mac)) },
+            text = { Text(stringResource(R.string.disconnect_body, mac)) },
+            confirmButton = { TextButton({ leaving = false; c.disconnect() }) { Text(stringResource(R.string.disconnect)) } },
+            dismissButton = { TextButton({ leaving = false }) { Text(stringResource(R.string.stay)) } },
+        )
     }
 
     // Keep the viewport the Mac sizes windows to in step with the picture's room and the Aa scale.
@@ -242,6 +319,7 @@ private fun VideoPane(
     trackpad: androidx.compose.runtime.MutableState<Pair<Double, Double>>?,
     visibleTop: Float? = null,
     visibleBottom: Float? = null,
+    zoom: PictureZoom? = null,
 ) {
     val videoSize by c.videoSize.collectAsState()
     val macPointer by c.macPointer.collectAsState()
@@ -254,6 +332,7 @@ private fun VideoPane(
     var boxTop by remember { mutableFloatStateOf(0f) }
     val fit = videoSize?.let { (w, h) -> VideoRect.fit(box.width.toFloat(), box.height.toFloat(), w, h) }
         ?: VideoRect(0f, 0f, box.width.toFloat(), box.height.toFloat())
+    val base = zoom?.apply(fit, box.width.toFloat(), box.height.toFloat()) ?: fit
 
     // Lifted so the last click (the text field being typed into) sits in sight above the keys: moved
     // only as far as that needs, and never so far that the picture's bottom edge clears the keys.
@@ -263,16 +342,16 @@ private fun VideoPane(
         if (bottom >= box.height) return@run 0f
         val top = ((visibleTop ?: boxTop) - boxTop).coerceIn(0f, bottom)
         val at = lastClick ?: macPointer ?: (0.5 to 0.5)
-        val y = fit.top + at.second.toFloat() * fit.height
+        val y = base.top + at.second.toFloat() * base.height
         val margin = with(density) { 24.dp.toPx() }
         val lo = y - (bottom - maxOf(2 * margin, (bottom - top) * 0.35f))
         val hi = y - top - margin
         val l = if (lo >= hi) lo else lift.floatValue.coerceIn(lo, hi)
-        l.coerceIn(0f, maxOf(0f, fit.top + fit.height - bottom))
+        l.coerceIn(0f, maxOf(0f, base.top + base.height - bottom))
     }
     SideEffect { lift.floatValue = wantLift }
     val lifted by animateFloatAsState(wantLift, label = "lift")
-    val rect = if (lifted == 0f) fit else fit.copy(top = fit.top - lifted)
+    val rect = if (lifted == 0f) base else base.copy(top = base.top - lifted)
     val rectRef = remember { mutableStateOf<VideoRect?>(null) }
     rectRef.value = if (box.width > 0) rect else null
 
@@ -296,10 +375,12 @@ private fun VideoPane(
     }
 
     Box(Modifier.fillMaxSize().onSizeChanged { box = it }.onGloballyPositioned { boxTop = it.positionInWindow().y }) {
-        val w = with(density) { rect.width.toDp() }
-        val h = with(density) { rect.height.toDp() }
+        // Placed by hand: zoomed in, the picture is larger than the pane and runs off its edges.
         AndroidView(
-            modifier = Modifier.offset { IntOffset(rect.left.roundToInt(), rect.top.roundToInt()) }.size(w, h),
+            modifier = Modifier.layout { m, room ->
+                val p = m.measure(Constraints.fixed(rect.width.roundToInt().coerceAtLeast(1), rect.height.roundToInt().coerceAtLeast(1)))
+                layout(room.maxWidth, room.maxHeight) { p.place(rect.left.roundToInt(), rect.top.roundToInt()) }
+            },
             factory = { ctx ->
                 SurfaceView(ctx).apply {
                     holder.addCallback(object : SurfaceHolder.Callback {
@@ -316,11 +397,11 @@ private fun VideoPane(
                 LaunchedEffect(macPointer) { macPointer?.let { trackpad.value = it } }
                 Box(
                     Modifier.fillMaxSize()
-                        .trackpadInput(c, { rectRef.value?.let { it.width to it.height } ?: (1f to 1f) }, trackpad, latch, scope) { rectRef.value }
+                        .trackpadInput(c, { rectRef.value?.let { it.width to it.height } ?: (1f to 1f) }, trackpad, latch, scope, zoom) { rectRef.value }
                         .hoverInput(c) { rectRef.value },
                 )
             } else {
-                Box(Modifier.fillMaxSize().directInput(c, { rectRef.value }, latch, scope))
+                Box(Modifier.fillMaxSize().directInput(c, { rectRef.value }, latch, scope, zoom))
             }
         }
 
@@ -341,6 +422,13 @@ private fun VideoPane(
             }
         }
         if (showStats) StatsLine(c, Modifier.align(Alignment.TopEnd).padding(8.dp))
+        if (zoom?.zoomed == true) {
+            ZoomChip(
+                zoom.scale,
+                Modifier.align(Alignment.BottomStart)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start)).padding(12.dp),
+            ) { zoom.reset() }
+        }
     }
 }
 
@@ -349,7 +437,7 @@ private fun StatsLine(c: Controller, modifier: Modifier) {
     val s by c.stats.collectAsState()
     val route by c.route.collectAsState()
     Text(
-        "${s.fps} fps · ${if (s.frameAgeMs < 0) "–" else "${s.frameAgeMs} ms"} · rtt ${if (s.rttMs < 0) "–" else "${s.rttMs} ms"}${route?.let { " · $it" } ?: ""}",
+        stringResource(R.string.stats_line, s.fps, if (s.frameAgeMs < 0) "–" else stringResource(R.string.ms, s.frameAgeMs), if (s.rttMs < 0) "–" else stringResource(R.string.ms, s.rttMs)) + (route?.let { " · $it" } ?: ""),
         modifier.background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
         color = Color.White, fontSize = 12.sp,
     )
@@ -369,25 +457,26 @@ private fun BarButton(icon: ImageVector, label: String, lit: Boolean = false, on
 private fun MenusButton(c: Controller, onOpen: () -> Unit) {
     val menus by c.menus.collectAsState()
     if (menus.top.isEmpty()) return
-    BarButton(Icons.Default.Menu, "Menus of ${menus.app ?: "the app"}", onClick = onOpen)
+    BarButton(Icons.Default.Menu, stringResource(R.string.menus_of, menus.app ?: stringResource(R.string.the_app)), onClick = onOpen)
 }
 
 /** Aa: how large the Mac's text renders here. Off leaves the Mac's windows their own size. */
 @Composable
-private fun ScaleButton(scale: Double?, onScale: (Double?) -> Unit) {
+private fun ScaleButton(scale: Double?, onMenu: (Boolean) -> Unit = {}, onScale: (Double?) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    MenuOpen(open, onMenu)
     Box {
         Box(
             Modifier.padding(horizontal = 3.dp).size(46.dp).clip(RoundedCornerShape(12.dp))
                 .background(if (scale != null) MaterialTheme.colorScheme.primary else ChipColor)
                 .combinedClickable { open = true },
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Default.TextFields, "Text size", tint = Color.White) }
+        ) { Icon(Icons.Default.TextFields, stringResource(R.string.text_size), tint = Color.White) }
         DropdownMenu(open, { open = false }) {
-            DropdownMenuItem({ Text("Leave Mac windows as they are") }, onClick = { onScale(null); open = false })
+            DropdownMenuItem({ Text(stringResource(R.string.leave_windows)) }, onClick = { onScale(null); open = false })
             listOf(0.5, 0.75, 1.0, 1.25, 1.5).forEach { s ->
                 DropdownMenuItem(
-                    { Text("${s}× ${if (s == 1.0) "(fit window to this screen)" else ""}") },
+                    { Text("${s}× ${if (s == 1.0) stringResource(R.string.fit_window) else ""}") },
                     onClick = { onScale(s); open = false },
                     trailingIcon = { if (scale == s) Text("✓") },
                 )
@@ -412,19 +501,19 @@ private fun ButtonRow(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BarButton(Icons.Default.Apps, "Apps") { onSheet(Sheet.APPS) }
-        ScaleButton(scale, onScale)
-        BarButton(Icons.Default.Keyboard, "Keyboard", lit = keyboardUp, onClick = onKeyboard)
-        BarButton(Icons.Default.DesktopMac, "Desktop", lit = windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
+        BarButton(Icons.Default.Apps, stringResource(R.string.apps)) { onSheet(Sheet.APPS) }
+        ScaleButton(scale, onScale = onScale)
+        BarButton(Icons.Default.Keyboard, stringResource(R.string.keyboard), lit = keyboardUp, onClick = onKeyboard)
+        BarButton(Icons.Default.DesktopMac, stringResource(R.string.desktop), lit = windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
         MenusButton(c) { onSheet(Sheet.MENUS) }
-        BarButton(Icons.Default.Settings, "Settings") { onSheet(Sheet.SETTINGS) }
+        BarButton(Icons.Default.Settings, stringResource(R.string.settings)) { onSheet(Sheet.SETTINGS) }
     }
 }
 
 /** Live thumbnails of the Mac's windows. Tap to stream one; hold for its traffic lights. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WindowStrip(c: Controller, modifier: Modifier) {
+private fun WindowStrip(c: Controller, modifier: Modifier, onMenu: (Boolean) -> Unit = {}) {
     val windows by c.windows.collectAsState()
     val thumbs by c.thumbnails.collectAsState()
     val icons by c.icons.collectAsState()
@@ -436,15 +525,16 @@ private fun WindowStrip(c: Controller, modifier: Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         items(list, key = { it.id }) { w ->
-            WindowThumb(c, w, thumbs[w.id], icons[w.bundleID], w.id == active)
+            WindowThumb(c, w, thumbs[w.id], icons[w.bundleID], w.id == active, onMenu)
         }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WindowThumb(c: Controller, w: WindowInfo, thumb: ImageBitmap?, icon: ImageBitmap?, active: Boolean) {
+private fun WindowThumb(c: Controller, w: WindowInfo, thumb: ImageBitmap?, icon: ImageBitmap?, active: Boolean, onMenu: (Boolean) -> Unit) {
     var menu by remember { mutableStateOf(false) }
+    MenuOpen(menu, onMenu)
     val view = LocalView.current
     Box(
         Modifier.height(50.dp).width(78.dp).clip(RoundedCornerShape(8.dp))
@@ -460,10 +550,46 @@ private fun WindowThumb(c: Controller, w: WindowInfo, thumb: ImageBitmap?, icon:
         if (icon != null) Image(icon, null, Modifier.align(Alignment.BottomEnd).padding(2.dp).size(18.dp))
         DropdownMenu(menu, { menu = false }) {
             Text("${w.appName} — ${w.title}".take(60), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
-            DropdownMenuItem({ Text("Close") }, onClick = { c.windowCommand(w.id, WindowCommand.CLOSE); menu = false }, leadingIcon = { Dot(Color(0xFFFF5F57)) })
-            DropdownMenuItem({ Text("Minimize") }, onClick = { c.windowCommand(w.id, WindowCommand.MINIMIZE); menu = false }, leadingIcon = { Dot(Color(0xFFFEBC2E)) })
-            DropdownMenuItem({ Text("Full Screen") }, onClick = { c.windowCommand(w.id, WindowCommand.FULL_SCREEN); menu = false }, leadingIcon = { Dot(Color(0xFF28C840)) })
+            DropdownMenuItem({ Text(stringResource(R.string.window_close)) }, onClick = { c.windowCommand(w.id, WindowCommand.CLOSE); menu = false }, leadingIcon = { Dot(Color(0xFFFF5F57)) })
+            DropdownMenuItem({ Text(stringResource(R.string.window_minimize)) }, onClick = { c.windowCommand(w.id, WindowCommand.MINIMIZE); menu = false }, leadingIcon = { Dot(Color(0xFFFEBC2E)) })
+            DropdownMenuItem({ Text(stringResource(R.string.window_full_screen)) }, onClick = { c.windowCommand(w.id, WindowCommand.FULL_SCREEN); menu = false }, leadingIcon = { Dot(Color(0xFF28C840)) })
         }
+    }
+}
+
+/** Tells [onMenu] while a menu is open, so the bar it hangs from stays put meanwhile. */
+@Composable
+private fun MenuOpen(open: Boolean, onMenu: (Boolean) -> Unit) {
+    if (open) DisposableEffect(Unit) { onMenu(true); onDispose { onMenu(false) } }
+}
+
+/** What is left of the bar while it is away: a tab at the top edge that brings it back. */
+@Composable
+private fun BarHandle(modifier: Modifier, onShow: () -> Unit) {
+    Box(
+        modifier.size(width = 72.dp, height = 40.dp).clickable(onClickLabel = stringResource(R.string.show_bar), onClick = onShow),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Box(
+            Modifier.size(width = 52.dp, height = 22.dp)
+                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(bottomStart = 11.dp, bottomEnd = 11.dp)),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.show_bar), Modifier.size(20.dp), tint = Color.White.copy(alpha = 0.85f)) }
+    }
+}
+
+/** How far the picture is zoomed in; a tap puts it back to fitted. */
+@Composable
+private fun ZoomChip(scale: Float, modifier: Modifier, onReset: () -> Unit) {
+    Row(
+        modifier.clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.6f))
+            .clickable(onClickLabel = stringResource(R.string.fit_picture), onClick = onReset)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("${(scale * 10).roundToInt() / 10.0}×", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.width(6.dp))
+        Icon(Icons.Default.ZoomOutMap, null, Modifier.size(16.dp), tint = Color.White)
     }
 }
 
@@ -517,7 +643,7 @@ private fun Trackpad(
             .trackpadInput(c, { size.width.toFloat().coerceAtLeast(1f) to (size.width / 1.6f).coerceAtLeast(1f) }, cursor, latch, scope),
         contentAlignment = Alignment.Center,
     ) {
-        Text("Trackpad", color = Color.White.copy(alpha = 0.25f), fontSize = 13.sp)
+        Text(stringResource(R.string.trackpad), color = Color.White.copy(alpha = 0.25f), fontSize = 13.sp)
     }
 }
 
@@ -597,9 +723,9 @@ private fun ClipboardChip(c: Controller, modifier: Modifier) {
                 Modifier.background(Color(0xEE262A33), RoundedCornerShape(14.dp)).padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Paste on $mac?", color = Color.White)
-                TextButton({ c.pasteOnMac(text); offer = null }) { Text("Paste") }
-                TextButton({ offer = null }) { Text("Dismiss", color = Color.White.copy(alpha = 0.7f)) }
+                Text(stringResource(R.string.paste_on, mac), color = Color.White)
+                TextButton({ c.pasteOnMac(text); offer = null }) { Text(stringResource(R.string.paste)) }
+                TextButton({ offer = null }) { Text(stringResource(R.string.dismiss), color = Color.White.copy(alpha = 0.7f)) }
             }
         }
         note?.let {

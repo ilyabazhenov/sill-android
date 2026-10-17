@@ -1,0 +1,203 @@
+<resources>
+    <!-- Common -->
+    <string name="cancel">Отмена</string>
+    <string name="ok">ОК</string>
+    <string name="close">Закрыть</string>
+    <string name="back">Назад</string>
+    <string name="pair">Создать пару</string>
+    <string name="disconnect">Отключиться</string>
+    <string name="the_mac">Mac</string>
+
+    <!-- App lock -->
+    <string name="locked_title">Remote Mac заблокирован</string>
+    <string name="locked_body">Это приложение управляет вашим Mac. Разблокируйте его отпечатком пальца, по лицу или блокировкой экрана.</string>
+    <string name="unlock">Разблокировать</string>
+    <string name="unlock_prompt_title">Разблокировка Remote Mac</string>
+    <string name="unlock_prompt_subtitle">Это приложение управляет вашим Mac</string>
+
+    <!-- Pairing and relay links -->
+    <string name="pair_link_title">Создать пару с %1$s?</string>
+    <string name="pair_link_body">Это устройство сможет видеть %1$s и управлять им. Создавайте пару только со своим Mac.</string>
+    <string name="relay_title">Подключаться к %1$s через ретранслятор?</string>
+    <string name="relay_title_unpaired">Сначала создайте пару с %1$s</string>
+    <string name="relay_body">Вне дома это устройство будет подключаться к %1$s через %2$s. Используйте только код, который rmhelper показывает на вашем собственном Mac.</string>
+    <string name="relay_body_unpaired">Этот код ретранслятора относится к Mac, с которым у этого устройства нет пары. Создайте пару дома, затем отсканируйте код снова.</string>
+    <string name="use_relay">Через ретранслятор</string>
+    <string name="pairing_enter_code">Введите код с %1$s</string>
+    <string name="pairing_with">Сопряжение с %1$s</string>
+    <string name="pairing_asking">Просим %1$s показать код…</string>
+    <string name="pairing_code_hint">%1$s показывает QR-код и 12-значный код. Отсканируйте QR-код или введите цифры.</string>
+    <string name="pairing_checking">Проверка…</string>
+    <string name="scan_qr">Сканировать QR</string>
+    <string name="scan_hint">Наведите камеру на QR-код на экране Mac.</string>
+    <string name="scan_bad_pair_link">Ссылка для сопряжения повреждена или создана более новой версией Sill.</string>
+    <string name="scan_bad_relay_link">Код ретранслятора повреждён. Выведите его снова командой rmhelper link.</string>
+    <string name="scan_no_camera">Разрешите доступ к камере, чтобы отсканировать код Mac, или введите код вручную.</string>
+
+    <!-- Connect screen -->
+    <string name="tagline">Окна вашего Mac на этом устройстве. На Mac нужно бесплатное приложение Sill (getsill.app).</string>
+    <string name="section_this_network">В этой сети</string>
+    <string name="browse_failed">Не удаётся искать Mac в этой сети. Проверьте Wi‑Fi.</string>
+    <string name="browsing">Ищем Mac с открытым Sill…</string>
+    <string name="section_away">Вне дома</string>
+    <string name="row_remote_relay">Удалённо · ретранслятор</string>
+    <string name="row_remote">Удалённо</string>
+    <string name="row_not_encrypted">Без шифрования</string>
+    <string name="row_wifi">Wi‑Fi</string>
+    <string name="row_not_paired">Нет пары</string>
+    <string name="scan_pairing_code">Сканировать код сопряжения</string>
+    <string name="add_mac_more">Добавить Mac…</string>
+    <string name="connect_help">На Mac откройте Sill, затем нажмите на Mac здесь. В первый раз Mac покажет код — отсканируйте или введите его. Вне дома включите Remote Access в настройках Sill и используйте VPN, например Tailscale, или запустите на Mac помощник ретранслятора и отсканируйте его код.</string>
+    <string name="lock_app">Блокировать приложение</string>
+    <string name="lock_app_note">Запрашивать отпечаток, лицо или блокировку экрана при открытии и после минуты в фоне.</string>
+    <string name="forget_title">Забыть %1$s?</string>
+    <string name="forget_body">Этому устройству придётся создать пару заново. Удалите его и на Mac (Sill › Settings › Devices).</string>
+    <string name="forget">Забыть</string>
+    <string name="add_mac_title">Добавить Mac</string>
+    <string name="add_mac_help">На Mac выберите «Pair iPhone or iPad…» в меню Sill. Введите адрес, который показывает его окно (имя Tailscale работает откуда угодно), затем код.</string>
+    <string name="address">Адрес</string>
+    <string name="plain_host">Тестовый хост без шифрования (SillHost без --pairing)</string>
+    <string name="connect">Подключить</string>
+    <string name="next">Далее</string>
+
+    <!-- Settings sheet -->
+    <string name="update_sill">Обновите Sill на Mac, чтобы менять его настройки отсюда.</string>
+    <string name="stream_running">%1$s×%2$s · %3$s кадр/с · %4$s Мбит/с</string>
+    <string name="on_virtual_display">на виртуальном дисплее</string>
+    <string name="nothing_streaming">Трансляции нет</string>
+    <string name="away_quality">Вне дома: %1$s · %2$s</string>
+    <string name="home_quality">Качество дома: %1$s</string>
+    <string name="retina">Retina</string>
+    <string name="standard">Стандарт</string>
+    <string name="link_cant_carry">Соединение не справляется с качеством «%1$s».</string>
+    <string name="use_preset">Выбрать «%1$s»</string>
+    <string name="software_encoder">Аппаратный кодировщик Mac занят, поэтому пока трансляция идёт не быстрее 60 кадр/с в стандартном разрешении.</string>
+    <string name="section_quality">Качество</string>
+    <string name="quality_hint">«Ультра» и «Экстрим» требуют очень быстрого Wi‑Fi; если картинка отстаёт, снизьте качество.</string>
+    <string name="section_resolution">Разрешение</string>
+    <string name="section_frame_rate">Ограничение частоты кадров</string>
+    <string name="fps">%1$d кадр/с</string>
+    <string name="mbps">%1$d Мбит/с</string>
+    <string name="prioritize_speed">Приоритет скорости кодирования</string>
+    <string name="virtual_display">Виртуальный дисплей</string>
+    <string name="virtual_display_note">Каждое окно транслируется со своего дисплея, поэтому обновляется, даже когда его закрывают другие окна.</string>
+    <string name="direct_wireless">Прямое беспроводное подключение</string>
+    <string name="direct_wireless_note">Только для iPhone и iPad; Android подключается через вашу сеть.</string>
+    <string name="not_persistent">Этот Mac хранит изменения до выхода из Sill.</string>
+    <string name="section_this_device">Это устройство</string>
+    <string name="share_clipboard">Общий буфер обмена</string>
+    <string name="share_clipboard_note">Текст, скопированный на Mac, появляется здесь; «Вставить на Mac» отправляет буфер этого устройства.</string>
+    <string name="gestures">Жесты тремя пальцами</string>
+    <string name="gestures_note">Вверх: Mission Control · вниз: App Exposé · влево/вправо: рабочие столы · сведение: приложения · разведение: рабочий стол.</string>
+    <string name="trackpad_mode">Картинка как трекпад</string>
+    <string name="trackpad_mode_note">В горизонтальном положении ведите пальцем в любом месте картинки, чтобы двигать указатель Mac; коснитесь, чтобы щёлкнуть. Выключено: щелчок там, где вы коснулись.</string>
+    <string name="auto_keyboard">Клавиатура для текстовых полей</string>
+    <string name="auto_keyboard_note">Щелчок по тексту на Mac (где указатель становится текстовым курсором) открывает клавиатуру.</string>
+    <string name="show_stats">Показывать статистику соединения</string>
+
+    <!-- Quality presets -->
+    <string name="preset_low">Низкое</string>
+    <string name="preset_efficient">Экономное</string>
+    <string name="preset_balanced">Сбалансированное</string>
+    <string name="preset_high">Высокое</string>
+    <string name="preset_pro">Про</string>
+    <string name="preset_ultra">Ультра</string>
+    <string name="preset_extreme">Экстрим</string>
+
+    <!-- Apps and menus sheets -->
+    <string name="search_apps">Поиск приложений и окон</string>
+    <string name="section_open_windows">Открытые окна</string>
+    <string name="section_all_apps">Все приложения</string>
+    <string name="menus">Меню</string>
+    <string name="reading_menu">Читаем меню…</string>
+
+    <!-- Stream screen -->
+    <string name="apps">Приложения</string>
+    <string name="trackpad_on">Трекпад: вкл.</string>
+    <string name="trackpad_off">Трекпад: выкл.</string>
+    <string name="keyboard">Клавиатура</string>
+    <string name="desktop">Рабочий стол</string>
+    <string name="settings">Настройки</string>
+    <string name="reconnecting">Переподключение…</string>
+    <string name="disconnect_title">Отключиться от %1$s?</string>
+    <string name="disconnect_body">Sill продолжит работать на Mac; нажмите на %1$s в списке, чтобы подключиться снова.</string>
+    <string name="stay">Остаться</string>
+    <string name="ms">%1$d мс</string>
+    <string name="stats_line">%1$d кадр/с · %2$s · rtt %3$s</string>
+    <string name="menus_of">Меню %1$s</string>
+    <string name="the_app">приложения</string>
+    <string name="text_size">Размер текста</string>
+    <string name="leave_windows">Оставить окна Mac как есть</string>
+    <string name="fit_window">(окно по размеру этого экрана)</string>
+    <string name="window_close">Закрыть</string>
+    <string name="window_minimize">Свернуть</string>
+    <string name="window_full_screen">Во весь экран</string>
+    <string name="show_bar">Показать панель</string>
+    <string name="fit_picture">Вписать картинку</string>
+    <string name="trackpad">Трекпад</string>
+    <string name="paste_on">Вставить на %1$s?</string>
+    <string name="paste">Вставить</string>
+    <string name="dismiss">Скрыть</string>
+
+    <!-- Connection status -->
+    <string name="connecting_to">Подключение к %1$s…</string>
+    <string name="reconnecting_to">Переподключение к %1$s…</string>
+    <string name="no_address_for">Нет адреса для %1$s: создайте пару дома с включённым Remote Access или добавьте его адрес.</string>
+    <string name="didnt_answer">%1$s не отвечает.</string>
+    <string name="relay_learned">Теперь %1$s доступен через ретранслятор.</string>
+    <string name="relay_pair_first">Сначала создайте пару с %1$s, затем снова отсканируйте код ретранслятора.</string>
+    <string name="new_key">У %1$s новый ключ с момента создания пары. Нажмите на него, чтобы создать пару заново.</string>
+    <string name="asks_to_pair">%1$s принимает только устройства с парой. Нажмите на него, чтобы создать пару.</string>
+    <string name="refused_device">%1$s не принял это устройство. Возможно, его удалили на Mac — создайте пару заново.</string>
+    <string name="couldnt_connect">Не удалось подключиться к %1$s.</string>
+    <string name="didnt_send_windows">%1$s не прислал список окон.</string>
+    <string name="stopped_trying">Попытки подключиться к %1$s прекращены. Нажмите на него, чтобы попробовать снова.</string>
+    <string name="not_an_address">Это не адрес.</string>
+    <string name="route_unencrypted">без шифрования</string>
+    <string name="route_relay">через ретранслятор</string>
+    <string name="route_tailscale">через Tailscale</string>
+    <string name="route_afar">удалённо</string>
+
+    <!-- Pairing errors -->
+    <string name="open_pair_on_mac">На Mac выберите «Pair iPhone or iPad…» в меню Sill, затем введите код здесь.</string>
+    <string name="unlock_mac_first">Разблокируйте %1$s и попробуйте снова.</string>
+    <string name="mac_busy_retry">%1$s занят. Повторите через %2$d с.</string>
+    <string name="no_code_shown">%1$s не показал код (%2$s).</string>
+    <string name="bad_proof">Этот Mac — не тот, за кого себя выдаёт.</string>
+    <string name="code_typo">В коде опечатка. Сверьте его с экраном Mac.</string>
+    <string name="code_length">В коде 12 цифр.</string>
+    <string name="couldnt_reach">Не удалось связаться с %1$s. Подключитесь к той же сети или включите Remote Access на Mac.</string>
+    <string name="code_mismatch">Код не подошёл.</string>
+    <plurals name="tries_left">
+        <item quantity="one">Осталась %d попытка.</item>
+        <item quantity="few">Осталось %d попытки.</item>
+        <item quantity="many">Осталось %d попыток.</item>
+        <item quantity="other">Осталось %d попытки.</item>
+    </plurals>
+    <string name="code_expired">Срок действия кода истёк. Покажите новый на Mac.</string>
+    <string name="code_not_shown">Mac сейчас не показывает код.</string>
+    <string name="wait_retry">Подождите %1$d с и попробуйте снова.</string>
+    <string name="mac_said_no">Mac отказал (%1$s).</string>
+    <string name="bad_proof_code">Это не тот Mac, с которого взят код.</string>
+    <string name="paired_with">Пара с %1$s создана.</string>
+
+    <!-- Session ends -->
+    <string name="needs_update">Для %1$s нужна более новая версия этого приложения. Обновите его, чтобы и дальше работать с %1$s.</string>
+    <string name="needs_update_min">Для %1$s нужна более новая версия этого приложения (протокол Sill %2$s или новее). Обновите его, чтобы и дальше работать с %1$s.</string>
+    <string name="bye_quit">На %1$s закрыли Sill.</string>
+    <string name="bye_removed">%1$s удалил это устройство. Нажмите на него, чтобы создать пару заново.</string>
+    <string name="bye_pairing_required">%1$s теперь принимает только устройства с парой. Нажмите на него, чтобы создать пару.</string>
+    <string name="bye_remote_off">На %1$s выключен Remote Access.</string>
+    <string name="bye_internet_off">%1$s больше не принимает подключения из интернета.</string>
+    <string name="bye_busy">К %1$s подключено слишком много устройств.</string>
+    <string name="bye_ended">%1$s завершил сеанс.</string>
+
+    <!-- Session notices -->
+    <string name="mac_kept_setting">Mac оставил прежнюю настройку.</string>
+    <string name="copied_on_mac">Скопировано на Mac</string>
+    <string name="sent_to_clipboard">Отправлено в буфер обмена Mac. Нажмите там ⌘V.</string>
+    <string name="mac_didnt_answer">Mac не ответил. Попробуйте снова.</string>
+    <string name="menu_not_chosen">Mac не выбрал этот пункт.</string>
+    <string name="too_long">Текст слишком длинный для отправки.</string>
+    <string name="didnt_reach_mac">Не дошло до Mac. Попробуйте снова.</string>
+</resources>

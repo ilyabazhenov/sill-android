@@ -43,9 +43,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.remotemac.app.MainActivity
+import dev.remotemac.app.R
 import dev.remotemac.app.stream.Controller
 import dev.remotemac.protocol.HostSettingsChange
 import dev.remotemac.protocol.MacMenuItem
@@ -69,7 +71,7 @@ fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, onDismiss: ()
             Text(windows?.macName ?: "Mac", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             val st = state
             if (st == null) {
-                Text("Update Sill on the Mac to change its settings from here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.update_sill), color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 val s = st.settings.let { base ->
                     val p = pending ?: return@let base
@@ -79,72 +81,77 @@ fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, onDismiss: ()
                         virtualDisplay = p.virtualDisplay ?: base.virtualDisplay, directWireless = p.directWireless ?: base.directWireless,
                     )
                 }
-                val running = st.stream?.let { "${it.width}×${it.height} · ${it.fps} fps · ${it.mbps} Mbps" + if (it.onVirtualDisplay) " · on the virtual display" else "" }
-                Text(listOfNotNull(running ?: "Nothing streaming", route).joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val running = st.stream?.let {
+                    listOfNotNull(
+                        stringResource(R.string.stream_running, it.width, it.height, it.fps, it.mbps),
+                        if (it.onVirtualDisplay) stringResource(R.string.on_virtual_display) else null,
+                    ).joinToString(" · ")
+                }
+                Text(listOfNotNull(running ?: stringResource(R.string.nothing_streaming), route).joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 st.away?.let { a ->
                     Text(
-                        if (a.awayRunning) "Away: ${QualityPreset.name(a.awayBitrate)} · ${if (a.awayCaptureScale >= 2) "Retina" else "Standard"}"
-                        else "Home quality: ${QualityPreset.name(a.homeBitrate)}",
+                        if (a.awayRunning) stringResource(R.string.away_quality, presetName(a.awayBitrate), stringResource(if (a.awayCaptureScale >= 2) R.string.retina else R.string.standard))
+                        else stringResource(R.string.home_quality, presetName(a.homeBitrate)),
                         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 st.link?.takeIf { it.isBehind }?.let { l ->
                     Spacer(Modifier.height(8.dp))
-                    Text("The link can’t carry ${QualityPreset.name(l.bitrate)}.", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.link_cant_carry, presetName(l.bitrate)), color = MaterialTheme.colorScheme.error)
                     l.suggestedBitrate?.let { b ->
-                        Button({ c.changeSettings(HostSettingsChange(bitrate = b, captureScale = l.suggestedCaptureScale)) }) { Text("Use ${QualityPreset.name(b)}") }
+                        Button({ c.changeSettings(HostSettingsChange(bitrate = b, captureScale = l.suggestedCaptureScale)) }) { Text(stringResource(R.string.use_preset, presetName(b))) }
                     }
                 }
                 if (st.softwareEncoder) Text(
-                    "The Mac’s hardware encoder is busy, so for now streams run at up to 60 fps at Standard.",
+                    stringResource(R.string.software_encoder),
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                 )
 
-                Section("Quality")
+                Section(stringResource(R.string.section_quality))
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     QualityPreset.entries.forEach { q ->
-                        FilterChip(s.bitrate == q.bitrate, { c.changeSettings(HostSettingsChange(bitrate = q.bitrate)) }, label = { Text("${q.title} · ${q.bitrate / 1_000_000}") })
+                        FilterChip(s.bitrate == q.bitrate, { c.changeSettings(HostSettingsChange(bitrate = q.bitrate)) }, label = { Text("${stringResource(presetTitle(q))} · ${q.bitrate / 1_000_000}") })
                     }
                 }
-                Text("Ultra and Extreme need very fast Wi‑Fi; if the picture lags, step down.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.quality_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                Section("Resolution")
+                Section(stringResource(R.string.section_resolution))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(s.captureScale >= 2, { c.changeSettings(HostSettingsChange(captureScale = 2.0)) }, label = { Text("Retina") })
-                    FilterChip(s.captureScale < 2, { c.changeSettings(HostSettingsChange(captureScale = 1.0)) }, label = { Text("Standard") })
+                    FilterChip(s.captureScale >= 2, { c.changeSettings(HostSettingsChange(captureScale = 2.0)) }, label = { Text(stringResource(R.string.retina)) })
+                    FilterChip(s.captureScale < 2, { c.changeSettings(HostSettingsChange(captureScale = 1.0)) }, label = { Text(stringResource(R.string.standard)) })
                 }
-                Section("Frame rate limit")
+                Section(stringResource(R.string.section_frame_rate))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(60, 120).forEach { f -> FilterChip(s.maxFPS == f, { c.changeSettings(HostSettingsChange(maxFPS = f)) }, label = { Text("$f fps") }) }
+                    listOf(60, 120).forEach { f -> FilterChip(s.maxFPS == f, { c.changeSettings(HostSettingsChange(maxFPS = f)) }, label = { Text(stringResource(R.string.fps, f)) }) }
                 }
-                ToggleRow("Prioritize encoding speed", s.prioritizeSpeed) { c.changeSettings(HostSettingsChange(prioritizeSpeed = it)) }
+                ToggleRow(stringResource(R.string.prioritize_speed), s.prioritizeSpeed) { c.changeSettings(HostSettingsChange(prioritizeSpeed = it)) }
                 if (st.virtualDisplayAvailable) {
-                    ToggleRow("Virtual display", s.virtualDisplay, "Each window streams from its own display, so it keeps updating behind other windows.") {
+                    ToggleRow(stringResource(R.string.virtual_display), s.virtualDisplay, stringResource(R.string.virtual_display_note)) {
                         c.changeSettings(HostSettingsChange(virtualDisplay = it))
                     }
                 }
                 st.virtualDisplayNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 s.directWireless?.let { dw ->
-                    ToggleRow("Direct Wireless Connection", dw, "For iPhone and iPad only; Android connects over your network.") {
+                    ToggleRow(stringResource(R.string.direct_wireless), dw, stringResource(R.string.direct_wireless_note)) {
                         c.changeSettings(HostSettingsChange(directWireless = it))
                     }
                 }
-                if (!st.persistent) Text("This Mac keeps changes until Sill quits.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (!st.persistent) Text(stringResource(R.string.not_persistent), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            Section("This device")
-            if ((windows?.clipboard ?: 0) >= 1) ToggleRow("Share clipboard", share, "Text copied on the Mac arrives here; Paste on Mac sends this device’s.") { c.setShareClipboard(it) }
-            if ((windows?.gestures ?: 0) >= 1) ToggleRow("Three-finger gestures", gestures, "Swipe up: Mission Control · down: App Exposé · left/right: Spaces · pinch: Apps · spread: Desktop.") { c.setGestures(it) }
-            ToggleRow("Picture as trackpad", trackpadMode, "Held sideways, drag anywhere on the picture to move the Mac’s pointer; tap to click. Off: touch clicks right where you tap.") { c.setTrackpadMode(it) }
-            ToggleRow("Keyboard for text fields", autoKeyboard, "A click into text on the Mac (where its pointer turns into an I-beam) brings up the keyboard.") { c.setAutoKeyboard(it) }
-            ToggleRow("Show link statistics", showStats.value) { showStats.value = it }
+            Section(stringResource(R.string.section_this_device))
+            if ((windows?.clipboard ?: 0) >= 1) ToggleRow(stringResource(R.string.share_clipboard), share, stringResource(R.string.share_clipboard_note)) { c.setShareClipboard(it) }
+            if ((windows?.gestures ?: 0) >= 1) ToggleRow(stringResource(R.string.gestures), gestures, stringResource(R.string.gestures_note)) { c.setGestures(it) }
+            ToggleRow(stringResource(R.string.trackpad_mode), trackpadMode, stringResource(R.string.trackpad_mode_note)) { c.setTrackpadMode(it) }
+            ToggleRow(stringResource(R.string.auto_keyboard), autoKeyboard, stringResource(R.string.auto_keyboard_note)) { c.setAutoKeyboard(it) }
+            ToggleRow(stringResource(R.string.show_stats), showStats.value) { showStats.value = it }
 
             Spacer(Modifier.height(20.dp))
             Button(
                 onClick = { onDismiss(); c.disconnect() },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
-            ) { Text("Disconnect") }
+            ) { Text(stringResource(R.string.disconnect)) }
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -182,16 +189,17 @@ fun AppsSheet(c: Controller, activity: MainActivity, onDismiss: () -> Unit) {
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(horizontal = 16.dp)) {
-            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), placeholder = { Text("Search apps and windows") }, singleLine = true)
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), placeholder = { Text(stringResource(R.string.search_apps)) }, singleLine = true)
             val q = query.trim().lowercase()
             val open = (windows?.windows ?: emptyList()).filter { q.isEmpty() || it.title.lowercase().contains(q) || it.appName.lowercase().contains(q) }
             val all = apps.filter { q.isEmpty() || it.name.lowercase().contains(q) }
-            LazyColumn(Modifier.fillMaxWidth().height(520.dp)) {
-                if (open.isNotEmpty()) item { Section("Open windows") }
+            // Up to 520 dp tall, less where the screen is shorter, as a phone held sideways.
+            LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().height(520.dp)) {
+                if (open.isNotEmpty()) item { Section(stringResource(R.string.section_open_windows)) }
                 items(open, key = { "w" + it.id }) { w ->
                     ListRow(icons[w.bundleID], w.title.ifEmpty { w.appName }, w.appName) { c.select(StreamSource.Window(w.id)); onDismiss() }
                 }
-                if (all.isNotEmpty()) item { Section("All apps") }
+                if (all.isNotEmpty()) item { Section(stringResource(R.string.section_all_apps)) }
                 items(all, key = { "a" + it.bundleID }) { a ->
                     ListRow(icons[a.bundleID], a.name, null) { c.launchApp(a.bundleID); onDismiss() }
                 }
@@ -221,16 +229,16 @@ fun MenusSheet(c: Controller, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(horizontal = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (stack.isNotEmpty()) IconButton({ stack.removeAt(stack.lastIndex) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-                Text(stack.lastOrNull()?.title ?: (menus.app ?: "Menus"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(8.dp))
+                if (stack.isNotEmpty()) IconButton({ stack.removeAt(stack.lastIndex) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                Text(stack.lastOrNull()?.title ?: (menus.app ?: stringResource(R.string.menus)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(8.dp))
             }
             menus.note?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp)) }
             val current = stack.lastOrNull()
             val items = if (current == null) menus.top else menus.items[current.id]
             if (items == null) {
-                Text("Reading the menu…", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.reading_menu), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                LazyColumn(Modifier.fillMaxWidth().height(520.dp)) {
+                LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().height(520.dp)) {
                     items(items) { item ->
                         if (item.separator == true) { HorizontalDivider(Modifier.padding(vertical = 4.dp)); return@items }
                         val enabled = item.enabled != false && !menus.stale
@@ -253,4 +261,19 @@ fun MenusSheet(c: Controller, onDismiss: () -> Unit) {
             }
         }
     }
+}
+
+/** A quality preset's name in this device's language, or the bitrate when it matches none. */
+@Composable
+private fun presetName(bitrate: Int): String =
+    QualityPreset.forBitrate(bitrate)?.let { stringResource(presetTitle(it)) } ?: stringResource(R.string.mbps, bitrate / 1_000_000)
+
+private fun presetTitle(q: QualityPreset): Int = when (q) {
+    QualityPreset.LOW -> R.string.preset_low
+    QualityPreset.EFFICIENT -> R.string.preset_efficient
+    QualityPreset.BALANCED -> R.string.preset_balanced
+    QualityPreset.HIGH -> R.string.preset_high
+    QualityPreset.PRO -> R.string.preset_pro
+    QualityPreset.ULTRA -> R.string.preset_ultra
+    QualityPreset.EXTREME -> R.string.preset_extreme
 }

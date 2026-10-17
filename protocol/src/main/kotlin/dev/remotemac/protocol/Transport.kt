@@ -67,6 +67,7 @@ class Transport private constructor(
         /**
          * A TLS dial. [pin] null accepts any key (an open door, or a pairing whose proof binds the
          * key instead); otherwise anything but that key fails the handshake with [PinRefused].
+         * [over] is an already-connected socket to run TLS on (the relay's); null dials [host].
          */
         fun tls(
             host: String,
@@ -75,6 +76,7 @@ class Transport private constructor(
             alpn: String,
             pin: ByteArray?,
             timeoutMs: Int = DIAL_TIMEOUT_MS,
+            over: Socket? = null,
         ): Transport {
             var seen: ByteArray? = null
             val trust = object : X509ExtendedTrustManager() {
@@ -105,9 +107,10 @@ class Transport private constructor(
             ctx.init(arrayOf(keys), arrayOf(trust), secureRandom)
             // No session cache to resume from: a resumed session would skip the certificate.
             ctx.clientSessionContext?.sessionCacheSize = 1
-            val raw = Socket()
-            tune(raw)
-            raw.connect(InetSocketAddress(host, port), timeoutMs)
+            val raw = over ?: Socket().also {
+                tune(it)
+                it.connect(InetSocketAddress(host, port), timeoutMs)
+            }
             val s = ctx.socketFactory.createSocket(raw, Alpn.SERVER_NAME, port, true) as SSLSocket
             s.enabledProtocols = arrayOf("TLSv1.3")
             val params = s.sslParameters
@@ -129,7 +132,7 @@ class Transport private constructor(
             return Transport(s, seen, s.applicationProtocol)
         }
 
-        private fun tune(s: Socket) {
+        internal fun tune(s: Socket) {
             s.tcpNoDelay = true
             s.keepAlive = true
             // IPTOS_LOWDELAY | interactive video, as Network.framework's .interactiveVideo asks.

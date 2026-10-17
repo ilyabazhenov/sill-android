@@ -1,3 +1,203 @@
 <resources>
     <string name="app_name">Remote Mac</string>
+
+    <!-- Common -->
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="close">Close</string>
+    <string name="back">Back</string>
+    <string name="pair">Pair</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="the_mac">the Mac</string>
+
+    <!-- App lock -->
+    <string name="locked_title">Remote Mac is locked</string>
+    <string name="locked_body">This app controls your Mac. Unlock with your fingerprint, face or screen lock.</string>
+    <string name="unlock">Unlock</string>
+    <string name="unlock_prompt_title">Unlock Remote Mac</string>
+    <string name="unlock_prompt_subtitle">This app controls your Mac</string>
+
+    <!-- Pairing and relay links -->
+    <string name="pair_link_title">Pair with %1$s?</string>
+    <string name="pair_link_body">This device will be able to see and control %1$s. Pair only with a Mac you own.</string>
+    <string name="relay_title">Reach %1$s through a relay?</string>
+    <string name="relay_title_unpaired">Pair with %1$s first</string>
+    <string name="relay_body">Away from home, this device will connect to %1$s through %2$s. Use only the code that rmhelper shows on your own Mac.</string>
+    <string name="relay_body_unpaired">This relay code is for a Mac this device hasn’t paired with. Pair at home, then scan it again.</string>
+    <string name="use_relay">Use Relay</string>
+    <string name="pairing_enter_code">Enter the code from %1$s</string>
+    <string name="pairing_with">Pairing with %1$s</string>
+    <string name="pairing_asking">Asking %1$s to show its code…</string>
+    <string name="pairing_code_hint">%1$s shows a QR code and a 12-digit code. Scan the QR code, or type the digits.</string>
+    <string name="pairing_checking">Checking…</string>
+    <string name="scan_qr">Scan QR</string>
+    <string name="scan_hint">Point the camera at the QR code on your Mac.</string>
+    <string name="scan_bad_pair_link">That pairing link is damaged or from a newer Sill.</string>
+    <string name="scan_bad_relay_link">That relay code is damaged. Print it again with rmhelper link.</string>
+    <string name="scan_no_camera">Allow the camera to scan the Mac’s code, or type its code instead.</string>
+
+    <!-- Connect screen -->
+    <string name="tagline">Your Mac’s windows on this device. Needs the free Sill app on the Mac (getsill.app).</string>
+    <string name="section_this_network">On this network</string>
+    <string name="browse_failed">Can’t look for Macs on this network. Check Wi‑Fi.</string>
+    <string name="browsing">Looking for Macs with Sill open…</string>
+    <string name="section_away">Away from home</string>
+    <string name="row_remote_relay">Remote · relay</string>
+    <string name="row_remote">Remote</string>
+    <string name="row_not_encrypted">Not encrypted</string>
+    <string name="row_wifi">Wi‑Fi</string>
+    <string name="row_not_paired">Not paired</string>
+    <string name="scan_pairing_code">Scan Pairing Code</string>
+    <string name="add_mac_more">Add a Mac…</string>
+    <string name="connect_help">On the Mac: open Sill, then tap the Mac here. The first time, the Mac shows a code to scan or type. Away from home, turn on Remote Access in Sill’s settings and use a VPN such as Tailscale, or run the relay helper on the Mac and scan its code.</string>
+    <string name="lock_app">Lock this app</string>
+    <string name="lock_app_note">Ask for your fingerprint, face or screen lock on opening and after a minute away.</string>
+    <string name="forget_title">Forget %1$s?</string>
+    <string name="forget_body">This device will have to pair with it again. Remove this device on the Mac too (Sill › Settings › Devices).</string>
+    <string name="forget">Forget</string>
+    <string name="add_mac_title">Add a Mac</string>
+    <string name="add_mac_help">On the Mac choose Pair iPhone or iPad… in Sill’s menu. Type the address its window shows (a Tailscale name works from anywhere), then its code.</string>
+    <string name="address">Address</string>
+    <string name="plain_host">Unencrypted test host (SillHost without --pairing)</string>
+    <string name="connect">Connect</string>
+    <string name="next">Next</string>
+
+    <!-- Settings sheet -->
+    <string name="update_sill">Update Sill on the Mac to change its settings from here.</string>
+    <string name="stream_running">%1$s×%2$s · %3$s fps · %4$s Mbps</string>
+    <string name="on_virtual_display">on the virtual display</string>
+    <string name="nothing_streaming">Nothing streaming</string>
+    <string name="away_quality">Away: %1$s · %2$s</string>
+    <string name="home_quality">Home quality: %1$s</string>
+    <string name="retina">Retina</string>
+    <string name="standard">Standard</string>
+    <string name="link_cant_carry">The link can’t carry %1$s.</string>
+    <string name="use_preset">Use %1$s</string>
+    <string name="software_encoder">The Mac’s hardware encoder is busy, so for now streams run at up to 60 fps at Standard.</string>
+    <string name="section_quality">Quality</string>
+    <string name="quality_hint">Ultra and Extreme need very fast Wi‑Fi; if the picture lags, step down.</string>
+    <string name="section_resolution">Resolution</string>
+    <string name="section_frame_rate">Frame rate limit</string>
+    <string name="fps">%1$d fps</string>
+    <string name="mbps">%1$d Mbps</string>
+    <string name="prioritize_speed">Prioritize encoding speed</string>
+    <string name="virtual_display">Virtual display</string>
+    <string name="virtual_display_note">Each window streams from its own display, so it keeps updating behind other windows.</string>
+    <string name="direct_wireless">Direct Wireless Connection</string>
+    <string name="direct_wireless_note">For iPhone and iPad only; Android connects over your network.</string>
+    <string name="not_persistent">This Mac keeps changes until Sill quits.</string>
+    <string name="section_this_device">This device</string>
+    <string name="share_clipboard">Share clipboard</string>
+    <string name="share_clipboard_note">Text copied on the Mac arrives here; Paste on Mac sends this device’s.</string>
+    <string name="gestures">Three-finger gestures</string>
+    <string name="gestures_note">Swipe up: Mission Control · down: App Exposé · left/right: Spaces · pinch: Apps · spread: Desktop.</string>
+    <string name="trackpad_mode">Picture as trackpad</string>
+    <string name="trackpad_mode_note">Held sideways, drag anywhere on the picture to move the Mac’s pointer; tap to click. Off: touch clicks right where you tap.</string>
+    <string name="auto_keyboard">Keyboard for text fields</string>
+    <string name="auto_keyboard_note">A click into text on the Mac (where its pointer turns into an I-beam) brings up the keyboard.</string>
+    <string name="show_stats">Show link statistics</string>
+
+    <!-- Quality presets -->
+    <string name="preset_low">Low</string>
+    <string name="preset_efficient">Efficient</string>
+    <string name="preset_balanced">Balanced</string>
+    <string name="preset_high">High</string>
+    <string name="preset_pro">Pro</string>
+    <string name="preset_ultra">Ultra</string>
+    <string name="preset_extreme">Extreme</string>
+
+    <!-- Apps and menus sheets -->
+    <string name="search_apps">Search apps and windows</string>
+    <string name="section_open_windows">Open windows</string>
+    <string name="section_all_apps">All apps</string>
+    <string name="menus">Menus</string>
+    <string name="reading_menu">Reading the menu…</string>
+
+    <!-- Stream screen -->
+    <string name="apps">Apps</string>
+    <string name="trackpad_on">Trackpad: on</string>
+    <string name="trackpad_off">Trackpad: off</string>
+    <string name="keyboard">Keyboard</string>
+    <string name="desktop">Desktop</string>
+    <string name="settings">Settings</string>
+    <string name="reconnecting">Reconnecting…</string>
+    <string name="disconnect_title">Disconnect from %1$s?</string>
+    <string name="disconnect_body">Sill keeps running there; tap %1$s in the list to connect again.</string>
+    <string name="stay">Stay</string>
+    <string name="ms">%1$d ms</string>
+    <string name="stats_line">%1$d fps · %2$s · rtt %3$s</string>
+    <string name="menus_of">Menus of %1$s</string>
+    <string name="the_app">the app</string>
+    <string name="text_size">Text size</string>
+    <string name="leave_windows">Leave Mac windows as they are</string>
+    <string name="fit_window">(fit window to this screen)</string>
+    <string name="window_close">Close</string>
+    <string name="window_minimize">Minimize</string>
+    <string name="window_full_screen">Full Screen</string>
+    <string name="show_bar">Show the bar</string>
+    <string name="fit_picture">Fit the picture</string>
+    <string name="trackpad">Trackpad</string>
+    <string name="paste_on">Paste on %1$s?</string>
+    <string name="paste">Paste</string>
+    <string name="dismiss">Dismiss</string>
+
+    <!-- Connection status -->
+    <string name="connecting_to">Connecting to %1$s…</string>
+    <string name="reconnecting_to">Reconnecting to %1$s…</string>
+    <string name="no_address_for">No address for %1$s: pair it at home with Remote Access on, or add its address.</string>
+    <string name="didnt_answer">%1$s didn’t answer.</string>
+    <string name="relay_learned">%1$s can now be reached through the relay.</string>
+    <string name="relay_pair_first">Pair with %1$s first, then scan its relay code again.</string>
+    <string name="new_key">%1$s has a new key since this device paired. Tap it to pair again.</string>
+    <string name="asks_to_pair">%1$s asks devices to pair. Tap it to pair.</string>
+    <string name="refused_device">%1$s refused this device. It may have been removed on the Mac: pair it again.</string>
+    <string name="couldnt_connect">Couldn’t connect to %1$s.</string>
+    <string name="didnt_send_windows">%1$s didn’t send its windows.</string>
+    <string name="stopped_trying">Stopped trying to reach %1$s. Tap it to try again.</string>
+    <string name="not_an_address">That isn’t an address.</string>
+    <string name="route_unencrypted">unencrypted</string>
+    <string name="route_relay">through the relay</string>
+    <string name="route_tailscale">through Tailscale</string>
+    <string name="route_afar">from afar</string>
+
+    <!-- Pairing errors -->
+    <string name="open_pair_on_mac">On the Mac, choose Pair iPhone or iPad… in Sill’s menu, then enter its code here.</string>
+    <string name="unlock_mac_first">Unlock %1$s, then try again.</string>
+    <string name="mac_busy_retry">%1$s is busy. Try again in %2$d s.</string>
+    <string name="no_code_shown">%1$s didn’t show a code (%2$s).</string>
+    <string name="bad_proof">That isn’t the Mac it says it is.</string>
+    <string name="code_typo">That code has a typo. Check it against your Mac.</string>
+    <string name="code_length">A code has 12 digits.</string>
+    <string name="couldnt_reach">Couldn’t reach %1$s. Be on the same network, or turn on Remote Access on the Mac.</string>
+    <string name="code_mismatch">That code didn’t match.</string>
+    <plurals name="tries_left">
+        <item quantity="one">%d try left.</item>
+        <item quantity="other">%d tries left.</item>
+    </plurals>
+    <string name="code_expired">The code expired. Show a new one on the Mac.</string>
+    <string name="code_not_shown">The Mac isn’t showing a code now.</string>
+    <string name="wait_retry">Wait %1$d s and try again.</string>
+    <string name="mac_said_no">The Mac said no (%1$s).</string>
+    <string name="bad_proof_code">That isn’t the Mac the code is from.</string>
+    <string name="paired_with">Paired with %1$s.</string>
+
+    <!-- Session ends -->
+    <string name="needs_update">%1$s needs a newer version of this app. Update it to keep using %1$s.</string>
+    <string name="needs_update_min">%1$s needs a newer version of this app (Sill %2$s protocol or later). Update it to keep using %1$s.</string>
+    <string name="bye_quit">%1$s quit Sill.</string>
+    <string name="bye_removed">%1$s removed this device. Tap it to pair again.</string>
+    <string name="bye_pairing_required">%1$s now asks devices to pair. Tap it to pair this device.</string>
+    <string name="bye_remote_off">Remote Access is off on %1$s.</string>
+    <string name="bye_internet_off">%1$s no longer allows connections from the internet.</string>
+    <string name="bye_busy">%1$s has too many devices connected.</string>
+    <string name="bye_ended">%1$s ended the session.</string>
+
+    <!-- Session notices -->
+    <string name="mac_kept_setting">The Mac kept its setting.</string>
+    <string name="copied_on_mac">Copied on the Mac</string>
+    <string name="sent_to_clipboard">Sent to the Mac’s clipboard. Press ⌘V there.</string>
+    <string name="mac_didnt_answer">The Mac didn’t answer. Try again.</string>
+    <string name="menu_not_chosen">The Mac didn’t choose that item.</string>
+    <string name="too_long">That’s too long to send.</string>
+    <string name="didnt_reach_mac">Didn’t reach the Mac. Try again.</string>
 </resources>

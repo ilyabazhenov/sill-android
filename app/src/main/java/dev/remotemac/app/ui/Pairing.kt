@@ -3,6 +3,7 @@ package dev.remotemac.app.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.util.Size
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -49,6 +50,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -64,9 +66,11 @@ import com.google.zxing.MultiFormatReader
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import dev.remotemac.app.MainActivity
+import dev.remotemac.app.R
 import dev.remotemac.app.stream.Controller
 import dev.remotemac.app.stream.PairingPrompt
 import dev.remotemac.protocol.PairLink
+import dev.remotemac.protocol.RelayLink
 import java.util.concurrent.Executors
 
 @Composable
@@ -79,18 +83,18 @@ fun PairingDialog(p: PairingPrompt, controller: Controller, onScan: () -> Unit, 
     }
     AlertDialog(
         onDismissRequest = { controller.cancelPairing() },
-        title = { Text(if (p.codeShown) "Enter the code from ${p.macName}" else "Pairing with ${p.macName}") },
+        title = { Text(if (p.codeShown) stringResource(R.string.pairing_enter_code, p.macName) else stringResource(R.string.pairing_with, p.macName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!p.codeShown) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (p.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.size(12.dp))
-                        Text("Asking ${p.macName} to show its code…")
+                        Text(stringResource(R.string.pairing_asking, p.macName))
                     }
                 } else {
                     Text(
-                        "${p.macName} shows a QR code and a 12-digit code. Scan the QR code, or type the digits.",
+                        stringResource(R.string.pairing_code_hint, p.macName),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     OutlinedTextField(
@@ -110,7 +114,7 @@ fun PairingDialog(p: PairingPrompt, controller: Controller, onScan: () -> Unit, 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.size(8.dp))
-                            Text("Checking…", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.pairing_checking), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -118,12 +122,12 @@ fun PairingDialog(p: PairingPrompt, controller: Controller, onScan: () -> Unit, 
             }
         },
         confirmButton = {
-            if (p.codeShown) TextButton(enabled = code.length == 12 && !p.busy, onClick = { controller.submitCode(code) }) { Text("Pair") }
+            if (p.codeShown) TextButton(enabled = code.length == 12 && !p.busy, onClick = { controller.submitCode(code) }) { Text(stringResource(R.string.pair)) }
         },
         dismissButton = {
             Row {
-                if (p.codeShown) TextButton({ onScan() }) { Text("Scan QR") }
-                TextButton({ controller.cancelPairing() }) { Text("Cancel") }
+                if (p.codeShown) TextButton({ onScan() }) { Text(stringResource(R.string.scan_qr)) }
+                TextButton({ controller.cancelPairing() }) { Text(stringResource(R.string.cancel)) }
             }
         },
     )
@@ -142,21 +146,29 @@ private val CodeGrouping = androidx.compose.ui.text.input.VisualTransformation {
     )
 }
 
-/** The camera, looking for the Mac's `sill://pair` QR code. */
+/** The camera, looking for the Mac's `sill://pair` QR code, or the relay code from its helper. */
 @Composable
-fun QrScannerScreen(onLink: (PairLink) -> Unit, onClose: () -> Unit) {
+fun QrScannerScreen(onLink: (PairLink) -> Unit, onRelay: (RelayLink) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     var granted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
-    var hint by remember { mutableStateOf("Point the camera at the QR code on your Mac.") }
+    var hint by remember { mutableStateOf(R.string.scan_hint) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
     LaunchedEffect(Unit) { if (!granted) ask.launch(Manifest.permission.CAMERA) }
+    // Back closes the camera and returns to the list of Macs, as the close button does.
+    BackHandler(onBack = onClose)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (granted) CameraPreview(onText = { t ->
             val link = PairLink.parse(t)
-            if (link != null) onLink(link) else if (t.startsWith("sill:")) hint = "That pairing link is damaged or from a newer Sill."
+            val relay = RelayLink.parse(t)
+            when {
+                link != null -> onLink(link)
+                relay != null -> onRelay(relay)
+                t.startsWith("sill:") -> hint = R.string.scan_bad_pair_link
+                t.startsWith("remotemac:") -> hint = R.string.scan_bad_relay_link
+            }
         })
         Box(Modifier.align(Alignment.Center).size(260.dp).border(3.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(24.dp)))
         Column(
@@ -164,10 +176,10 @@ fun QrScannerScreen(onLink: (PairLink) -> Unit, onClose: () -> Unit) {
                 .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp)).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(if (granted) hint else "Allow the camera to scan the Mac’s code, or type its code instead.", color = Color.White, textAlign = TextAlign.Center)
+            Text(if (granted) stringResource(hint) else stringResource(R.string.scan_no_camera), color = Color.White, textAlign = TextAlign.Center)
         }
         IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).safeDrawingPadding().padding(8.dp)) {
-            Icon(Icons.Default.Close, "Close", tint = Color.White)
+            Icon(Icons.Default.Close, stringResource(R.string.close), tint = Color.White)
         }
     }
 }
@@ -207,7 +219,7 @@ private fun CameraPreview(onText: (String) -> Unit) {
                         val text = result?.text
                         if (text != null) {
                             ContextCompat.getMainExecutor(context).execute {
-                                if (!done && PairLink.parse(text) != null) done = true
+                                if (!done && (PairLink.parse(text) != null || RelayLink.parse(text) != null)) done = true
                                 onText(text)
                             }
                         }

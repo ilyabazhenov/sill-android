@@ -1,0 +1,19 @@
+# systemd unit for the relay on a VPS: /etc/systemd/system/rmrelay.service
+[Unit]
+Description=Remote Mac relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/rmrelay -listen :7456
+Restart=always
+RestartSec=2
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

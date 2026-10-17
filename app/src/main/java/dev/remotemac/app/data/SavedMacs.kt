@@ -5,6 +5,7 @@ import dev.remotemac.protocol.Base64URL
 import dev.remotemac.protocol.MacAddress
 import dev.remotemac.protocol.MacInfo
 import dev.remotemac.protocol.RecognitionTag
+import dev.remotemac.protocol.RelayLink
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
@@ -33,6 +34,12 @@ data class SavedMac(
     val lastConnectedAt: Long? = null,
     /** The Mac removed this device ("removed" goodbye): it must pair again. */
     val revoked: Boolean = false,
+    /** host:port of the relay its helper is on (docs/relay.md), from `rmhelper link`. */
+    val relay: String? = null,
+    /** The Mac's id on that relay: 32 hex characters. */
+    val relayID: String? = null,
+    /** base64url of the access key the Mac's helper asks for. */
+    val relayAccess: String? = null,
 ) {
     val pin: ByteArray get() = Base64URL.decode(fingerprint)!!
 
@@ -66,6 +73,13 @@ class SavedMacs(context: Context) {
     fun byTag(tag: String?) = _all.value.firstOrNull { !it.revoked && it.recognizes(tag) }
 
     fun byFingerprint(fp: ByteArray) = _all.value.firstOrNull { it.fingerprint == Base64URL.encode(fp) }
+
+    /** A `remotemac://relay` link: the paired Mac with that key now also goes through the relay. */
+    fun learnRelay(link: RelayLink): SavedMac? {
+        val mac = byFingerprint(link.fingerprint)?.takeIf { !it.revoked } ?: return null
+        update(mac.macID) { it.copy(relay = link.relay.text, relayID = link.macID, relayAccess = link.access) }
+        return byID(mac.macID)
+    }
 
     /** A new pairing replaces any record of the same Mac. */
     @Synchronized

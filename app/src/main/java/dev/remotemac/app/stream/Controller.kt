@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import dev.remotemac.app.R
 import dev.remotemac.app.data.IdentityStore
 import dev.remotemac.app.data.SavedMac
 import dev.remotemac.app.data.SavedMacs
@@ -37,6 +38,8 @@ import dev.remotemac.protocol.ParameterSets
 import dev.remotemac.protocol.ParsedAddress
 import dev.remotemac.protocol.PinRefused
 import dev.remotemac.protocol.PressMenuItem
+import dev.remotemac.protocol.Relay
+import dev.remotemac.protocol.RelayLink
 import dev.remotemac.protocol.Session
 import dev.remotemac.protocol.SessionListener
 import dev.remotemac.protocol.SignedMacInfo
@@ -228,10 +231,18 @@ class Controller(private val context: Context) {
     }
 
     private fun prefs() = context.getSharedPreferences("app", Context.MODE_PRIVATE)
+    private fun str(id: Int, vararg args: Any): String = context.getString(id, *args)
+
+    /**
+     * Through the relay the Mac's copies cross the internet, so sharing there is its own choice,
+     * off until turned on; at home (and over a VPN) it stays as it was.
+     */
+    private var viaRelay = false
+    private val clipboardKey get() = if (viaRelay) "shareClipboardRelay" else "shareClipboard"
 
     fun setShareClipboard(on: Boolean) {
         shareClipboard.value = on
-        prefs().edit().putBoolean("shareClipboard", on).apply()
+        prefs().edit().putBoolean(clipboardKey, on).apply()
         if ((_windows.value?.clipboard ?: 0) >= 1) session?.clipboard(if (on) Clipboard() else Clipboard(stop = true))
     }
 
@@ -275,7 +286,7 @@ class Controller(private val context: Context) {
         _pairing.value = null
         userEnded = false
         _phase.value = if (reconnecting) Phase.RECONNECTING else Phase.DIALING
-        _status.value = if (reconnecting) "Reconnecting to ${t.name}…" else "Connecting to ${t.name}…"
+        _status.value = str(if (reconnecting) R.string.reconnecting_to else R.string.connecting_to, t.name)
         dialJob = scope.launch {
             val result = withContext(Dispatchers.IO) { runCatching { open(t) } }
             result.onSuccess { (transport, pin, mac) -> startSession(t, transport, pin, mac) }
@@ -311,6 +322,12 @@ class Controller(private val context: Context) {
         }
     }
 
+    /** One way to the Mac from afar: its remote door at [host]:[port], or through the relay there. */
+    private data class Way(val host: String, val port: Int, val relayID: ByteArray? = null, val access: ByteArray? = null) {
+        /** What [SavedMac.lastWorked] keeps. */
+        val text: String get() = (if (relayID != null) "relay:" else "") + ParsedAddress(host, port).text
+    }
+
     /**
      * Every way to the Mac from afar, a second apart; the first handshake wins. Once the race is
      * decided (a winner, every attempt failed, the 20 s limit, or the dial cancelled), the
@@ -319,18 +336,27 @@ class Controller(private val context: Context) {
      */
     private suspend fun raceRemote(mac: SavedMac, id: dev.remotemac.protocol.Identity): Transport {
         val candidates = remoteCandidates(mac)
-        if (candidates.isEmpty()) error("no address for ${mac.name}: pair it at home with Remote Access on, or add its address")
+        if (candidates.isEmpty()) error(str(R.string.no_address_for, mac.name))
         val winner = CompletableDeferred<Pair<Transport, String>>()
         val failures = AtomicInteger(0)
-        val jobs = candidates.mapIndexed { i, (host, port) ->
+        // A relay's answer says more than a timeout elsewhere ("the Mac isn't on the relay"), so
+        // when everything fails, that's the error shown.
+        var relayError: Exception? = null
+        val jobs = candidates.mapIndexed { i, way ->
             scope.launch(Dispatchers.IO) {
                 delay(i * 1000L)
                 if (winner.isCompleted) return@launch
                 try {
-                    val tr = Transport.tls(host, port, id, Alpn.SESSION, mac.pin)
-                    if (!winner.complete(tr to ParsedAddress(host, port).text)) tr.close()
+                    val over = way.relayID?.let { Relay.dial(way.host, way.port, it, way.access!!) }
+                    val tr = try {
+                        Transport.tls(way.host, way.port, id, Alpn.SESSION, mac.pin, over = over)
+                    } catch (e: Exception) {
+                        throw if (over != null) Relay.explain(e) else e
+                    }
+                    if (!winner.complete(tr to way.text)) tr.close()
                 } catch (e: Exception) {
-                    if (failures.incrementAndGet() == candidates.size) winner.completeExceptionally(e)
+                    if (way.relayID != null) relayError = e
+                    if (failures.incrementAndGet() == candidates.size) winner.completeExceptionally(relayError ?: e)
                 }
             }
         }
@@ -346,25 +372,46 @@ class Controller(private val context: Context) {
                 runCatching { winner.getCompleted().first.close() }
             }
         }
-        val won = got ?: throw java.io.IOException("${mac.name} didn’t answer")
+        val won = got ?: throw (relayError ?: java.io.IOException(str(R.string.didnt_answer, mac.name)))
         saved.update(mac.macID) { it.copy(lastWorked = won.second) }
         return won.first
     }
 
-    private fun remoteCandidates(mac: SavedMac): List<Pair<String, Int>> {
-        val out = LinkedHashSet<Pair<String, Int>>()
-        mac.lastWorked?.let { ParsedAddress.parse(it) }?.let { out += it.host to (it.port ?: mac.remotePort) }
+    /** Sill's own addresses first (VPN, LAN, internet, typed), the relay last, unless it worked last time. */
+    private fun remoteCandidates(mac: SavedMac): List<Way> {
+        val access = mac.relayAccess?.let { Base64URL.decode(it) }
+        val relay = mac.relay?.let { ParsedAddress.parse(it) }?.takeIf { it.port != null && mac.relayID != null && access != null }
+            ?.let { Way(it.host, it.port!!, RelayLink.idBytes(mac.relayID!!), access) }
+        val out = LinkedHashMap<String, Way>()
+        fun add(w: Way) { out.putIfAbsent(w.text, w) }
+        fun direct(a: ParsedAddress) = add(Way(a.host, a.port ?: mac.remotePort))
+        val last = mac.lastWorked
+        when {
+            last == null -> {}
+            last.startsWith("relay:") -> if (relay != null && relay.text == last) add(relay)
+            else -> ParsedAddress.parse(last)?.let(::direct)
+        }
         val rank = mapOf("vpn" to 0, "lan" to 1, "internet" to 2)
-        mac.addresses.sortedBy { rank[it.kind] ?: 3 }.forEach { out += it.host to (it.port ?: mac.remotePort) }
-        mac.typedAddresses.mapNotNull { ParsedAddress.parse(it) }.forEach { out += it.host to (it.port ?: mac.remotePort) }
-        return out.toList()
+        mac.addresses.sortedBy { rank[it.kind] ?: 3 }.forEach { add(Way(it.host, it.port ?: mac.remotePort)) }
+        mac.typedAddresses.mapNotNull { ParsedAddress.parse(it) }.forEach(::direct)
+        relay?.let(::add)
+        return out.values.toList()
+    }
+
+    /** A `remotemac://relay` link from the Mac's helper. */
+    fun relayLink(link: RelayLink) {
+        val mac = saved.learnRelay(link)
+        _notices.tryEmit(
+            if (mac != null) str(R.string.relay_learned, mac.name)
+            else str(R.string.relay_pair_first, link.name)
+        )
     }
 
     private fun dialFailed(t: Target, e: Throwable, reconnecting: Boolean) {
         Log.w(TAG, "dial ${t.name} failed", e)
         if (e is PinRefused && t is Target.Row && t.saved != null) {
             // The Mac was set up again (a new key): pair once more.
-            _status.value = "${t.name} has a new key since this device paired. Tap it to pair again."
+            _status.value = str(R.string.new_key, t.name)
             saved.update(t.saved.macID) { it.copy(revoked = true) }
             _phase.value = Phase.IDLE
             return
@@ -372,10 +419,10 @@ class Controller(private val context: Context) {
         if (reconnecting) { scheduleReconnect(); return }
         _phase.value = Phase.IDLE
         _status.value = when {
-            e is java.net.SocketTimeoutException || e is java.net.ConnectException -> "${t.name} didn’t answer."
-            e is javax.net.ssl.SSLException && t is Target.Row && t.saved == null -> "${t.name} asks devices to pair. Tap it to pair."
-            e is javax.net.ssl.SSLException -> "${t.name} refused this device. It may have been removed on the Mac: pair it again."
-            else -> e.message ?: "Couldn’t connect to ${t.name}."
+            e is java.net.SocketTimeoutException || e is java.net.ConnectException -> str(R.string.didnt_answer, t.name)
+            e is javax.net.ssl.SSLException && t is Target.Row && t.saved == null -> str(R.string.asks_to_pair, t.name)
+            e is javax.net.ssl.SSLException -> str(R.string.refused_device, t.name)
+            else -> e.message ?: str(R.string.couldnt_connect, t.name)
         }
     }
 
@@ -392,18 +439,18 @@ class Controller(private val context: Context) {
                 runCatching { PairingClient.ask(host, row.port, identities.identity(), shortName, Build.MODEL, cable = false) }
             }
             val prompt = _pairing.value ?: return@launch
-            out.onFailure { _pairing.value = prompt.copy(busy = false, error = "${row.serviceName} didn’t answer.") }
+            out.onFailure { _pairing.value = prompt.copy(busy = false, error = str(R.string.didnt_answer, row.serviceName)) }
             out.onSuccess { o ->
                 when (o) {
                     is PairingClient.Outcome.Refused -> _pairing.value = when (o.reason) {
                         "shown" -> prompt.copy(codeShown = true, busy = false, askedKey = o.macFingerprint)
-                        "openOnMac" -> prompt.copy(busy = false, error = "On the Mac, choose Pair iPhone or iPad… in Sill’s menu, then enter its code here.", codeShown = true)
-                        "locked" -> prompt.copy(busy = false, error = "Unlock ${row.serviceName}, then try again.")
-                        "busy" -> prompt.copy(busy = false, error = "${row.serviceName} is busy. Try again in ${(o.retryAfter ?: 5.0).toInt()} s.")
-                        else -> prompt.copy(busy = false, error = o.message ?: "${row.serviceName} didn’t show a code (${o.reason}).")
+                        "openOnMac" -> prompt.copy(busy = false, error = str(R.string.open_pair_on_mac), codeShown = true)
+                        "locked" -> prompt.copy(busy = false, error = str(R.string.unlock_mac_first, row.serviceName))
+                        "busy" -> prompt.copy(busy = false, error = str(R.string.mac_busy_retry, row.serviceName, (o.retryAfter ?: 5.0).toInt()))
+                        else -> prompt.copy(busy = false, error = o.message ?: str(R.string.no_code_shown, row.serviceName, o.reason))
                     }
                     is PairingClient.Outcome.Paired -> paired(o, row, null)
-                    PairingClient.Outcome.BadProof -> _pairing.value = prompt.copy(busy = false, error = "That isn’t the Mac it says it is.")
+                    PairingClient.Outcome.BadProof -> _pairing.value = prompt.copy(busy = false, error = str(R.string.bad_proof))
                 }
             }
         }
@@ -414,7 +461,7 @@ class Controller(private val context: Context) {
         val p = _pairing.value ?: return
         val check = dev.remotemac.protocol.PairingCode.check(code)
         if (check !is dev.remotemac.protocol.PairingCode.Check.Ok) {
-            _pairing.value = p.copy(error = if (check is dev.remotemac.protocol.PairingCode.Check.Typo) "That code has a typo. Check it against your Mac." else "A code has 12 digits.")
+            _pairing.value = p.copy(error = if (check is dev.remotemac.protocol.PairingCode.Check.Typo) str(R.string.code_typo) else str(R.string.code_length))
             return
         }
         _pairing.value = p.copy(busy = true, error = null)
@@ -430,7 +477,7 @@ class Controller(private val context: Context) {
 
     /** Pairing from afar: the Mac's address and the code from its window. */
     fun startRemotePairing(address: String) {
-        val a = ParsedAddress.parse(address) ?: run { _status.value = "That isn’t an address."; return }
+        val a = ParsedAddress.parse(address) ?: run { _status.value = str(R.string.not_an_address); return }
         val port = a.port ?: 7455
         _pairing.value = PairingPrompt(a.host, codeShown = true, host = a.host, port = port)
         // At a home door an ask puts the Mac's code up by itself; a remote door answers "closed"
@@ -465,7 +512,7 @@ class Controller(private val context: Context) {
                     return@launch
                 }
             }
-            _pairing.value = PairingPrompt(link.name, codeShown = true, error = "Couldn’t reach ${link.name}. Be on the same network, or turn on Remote Access on the Mac.")
+            _pairing.value = PairingPrompt(link.name, codeShown = true, error = str(R.string.couldnt_reach, link.name))
             last?.exceptionOrNull()?.let { Log.w(TAG, "pair link", it) }
         }
     }
@@ -473,7 +520,7 @@ class Controller(private val context: Context) {
     private fun handlePairOutcome(out: Result<PairingClient.Outcome>, p: PairingPrompt, typedAddress: String?) {
         out.onFailure { e ->
             Log.w(TAG, "pairing", e)
-            _pairing.value = p.copy(busy = false, error = "${p.macName} didn’t answer.")
+            _pairing.value = p.copy(busy = false, error = str(R.string.didnt_answer, p.macName))
         }
         out.onSuccess { o ->
             when (o) {
@@ -481,14 +528,14 @@ class Controller(private val context: Context) {
                 is PairingClient.Outcome.Refused -> _pairing.value = p.copy(
                     busy = false,
                     error = when (o.reason) {
-                        "code" -> "That code didn’t match. ${o.triesLeft?.let { "$it tries left." } ?: ""}".trim()
-                        "expired" -> "The code expired. Show a new one on the Mac."
-                        "closed", "stopped" -> "The Mac isn’t showing a code now."
-                        "busy" -> "Wait ${(o.retryAfter ?: 2.0).toInt()} s and try again."
-                        else -> o.message ?: "The Mac said no (${o.reason})."
+                        "code" -> listOfNotNull(str(R.string.code_mismatch), o.triesLeft?.let { context.resources.getQuantityString(R.plurals.tries_left, it, it) }).joinToString(" ")
+                        "expired" -> str(R.string.code_expired)
+                        "closed", "stopped" -> str(R.string.code_not_shown)
+                        "busy" -> str(R.string.wait_retry, (o.retryAfter ?: 2.0).toInt())
+                        else -> o.message ?: str(R.string.mac_said_no, o.reason)
                     },
                 )
-                PairingClient.Outcome.BadProof -> _pairing.value = p.copy(busy = false, error = "That isn’t the Mac the code is from.")
+                PairingClient.Outcome.BadProof -> _pairing.value = p.copy(busy = false, error = str(R.string.bad_proof_code))
             }
         }
     }
@@ -505,7 +552,7 @@ class Controller(private val context: Context) {
         )
         saved.save(mac)
         _pairing.value = null
-        _notices.tryEmit("Paired with ${o.name}.")
+        _notices.tryEmit(str(R.string.paired_with, o.name))
         when {
             row != null -> dial(Target.Row(row, mac))
             prompt != null && prompt.host.isNotEmpty() -> dial(Target.Remote(mac))
@@ -529,10 +576,13 @@ class Controller(private val context: Context) {
         sessionSaved = mac
         firstList = true
         lastGoodbye = null
-        _route.value = when (t) {
-            is Target.Remote -> remoteRoute(transport)
-            else -> if (transport.isTls) null else "unencrypted"
+        viaRelay = t is Target.Remote && saved.byID(t.mac.macID)?.lastWorked?.startsWith("relay:") == true
+        _route.value = when {
+            viaRelay -> str(R.string.route_relay)
+            t is Target.Remote -> remoteRoute(transport)
+            else -> if (transport.isTls) null else str(R.string.route_unencrypted)
         }
+        shareClipboard.value = prefs().getBoolean(clipboardKey, !viaRelay)
         val events = SessionEvents()
         val s = Session(transport, deviceName, SillParity.VERSION, events)
         events.me = s
@@ -542,14 +592,14 @@ class Controller(private val context: Context) {
         main.postDelayed({
             if (session === s && firstList && s.isOpen) {
                 s.close()
-                _status.value = "${t.name} didn’t send its windows."
+                _status.value = str(R.string.didnt_send_windows, t.name)
             }
         }, 10_000)
     }
 
     private fun remoteRoute(t: Transport): String {
-        val a = t.socket.inetAddress?.hostAddress ?: return "from afar"
-        return if (a.startsWith("100.") || a.startsWith("fd7a:115c:a1e0")) "through Tailscale" else "from afar"
+        val a = t.socket.inetAddress?.hostAddress ?: return str(R.string.route_afar)
+        return str(if (a.startsWith("100.") || a.startsWith("fd7a:115c:a1e0")) R.string.route_tailscale else R.string.route_afar)
     }
 
     /**
@@ -573,7 +623,7 @@ class Controller(private val context: Context) {
                 val refused = (pending.bitrate != null && pending.bitrate != state.settings.bitrate) ||
                     (pending.maxFPS != null && pending.maxFPS != state.settings.maxFPS) ||
                     (pending.captureScale != null && pending.captureScale != state.settings.captureScale)
-                if (refused) _notices.tryEmit("The Mac kept its setting.")
+                if (refused) _notices.tryEmit(str(R.string.mac_kept_setting))
                 _settingsPending.value = null
             }
         }
@@ -626,12 +676,12 @@ class Controller(private val context: Context) {
                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 ignoreNextLocalClip = text
                 cm.setPrimaryClip(ClipData.newPlainText("Mac", text))
-                _notices.tryEmit("Copied on the Mac")
+                _notices.tryEmit(str(R.string.copied_on_mac))
             }
         }
 
         override fun onClipboardReceipt(token: ByteArray) = onMain {
-            receipts.remove(Base64URL.encode(token))?.let { main.removeCallbacks(it); _clipboardNote.value = "Sent to the Mac’s clipboard. Press ⌘V there." }
+            receipts.remove(Base64URL.encode(token))?.let { main.removeCallbacks(it); _clipboardNote.value = str(R.string.sent_to_clipboard) }
         }
 
         override fun onGoodbye(g: Goodbye) { if (live) lastGoodbye = g }
@@ -708,7 +758,7 @@ class Controller(private val context: Context) {
             return
         }
         Log.i(TAG, "session ended: $error; reconnecting")
-        _status.value = words ?: "Reconnecting to ${t.name}…"
+        _status.value = words ?: str(R.string.reconnecting_to, t.name)
         _phase.value = Phase.RECONNECTING
         scheduleReconnect(if (g?.reason == "quit") 3_000 else 0)
     }
@@ -717,16 +767,16 @@ class Controller(private val context: Context) {
     // App Store, and its version is Sill's (SillParity), not this app's.
     private fun goodbyeWords(g: Goodbye, name: String): String = if (g.reason == "update") {
         val min = g.minimumVersion?.let { dev.remotemac.protocol.SafeText.label(it, 32) }?.takeIf { it.isNotEmpty() }
-        "$name needs a newer version of this app" + (min?.let { " (Sill $it protocol or later)" } ?: "") + ". Update it to keep using $name."
+        if (min != null) str(R.string.needs_update_min, name, min) else str(R.string.needs_update, name)
     } else g.message?.let { dev.remotemac.protocol.SafeText.label(it, 300) }?.takeIf { it.isNotEmpty() }
         ?: when (g.reason) {
-            "quit" -> "$name quit Sill."
-            "removed" -> "$name removed this device. Tap it to pair again."
-            "pairingRequired" -> "$name now asks devices to pair. Tap it to pair this device."
-            "remoteOff" -> "Remote Access is off on $name."
-            "internetOff" -> "$name no longer allows connections from the internet."
-            "busy" -> "$name has too many devices connected."
-            else -> "$name ended the session."
+            "quit" -> str(R.string.bye_quit, name)
+            "removed" -> str(R.string.bye_removed, name)
+            "pairingRequired" -> str(R.string.bye_pairing_required, name)
+            "remoteOff" -> str(R.string.bye_remote_off, name)
+            "internetOff" -> str(R.string.bye_internet_off, name)
+            "busy" -> str(R.string.bye_busy, name)
+            else -> str(R.string.bye_ended, name)
         }
 
     private fun scheduleReconnect(firstDelay: Long = 0) {
@@ -736,7 +786,7 @@ class Controller(private val context: Context) {
             val delays = listOf(0L, 2_000, 4_000, 8_000, 10_000, 10_000, 20_000, 30_000, 30_000, 30_000, 30_000, 30_000)
             if (reconnectAttempts >= delays.size) {
                 _phase.value = Phase.IDLE
-                _status.value = "Stopped trying to reach ${t.name}. Tap it to try again."
+                _status.value = str(R.string.stopped_trying, t.name)
                 resetCatalog()
                 return@launch
             }
@@ -750,7 +800,7 @@ class Controller(private val context: Context) {
             }
             val next = when {
                 row != null -> Target.Row(row, mac)
-                mac != null && (mac.addresses.isNotEmpty() || mac.typedAddresses.isNotEmpty() || mac.lastWorked != null) -> Target.Remote(mac)
+                mac != null && (mac.addresses.isNotEmpty() || mac.typedAddresses.isNotEmpty() || mac.lastWorked != null || mac.relay != null) -> Target.Remote(mac)
                 t is Target.Address -> t
                 else -> null
             }
@@ -884,7 +934,7 @@ class Controller(private val context: Context) {
         val r = Runnable {
             if (_settingsPending.value?.token == token) {
                 _settingsPending.value = null
-                _notices.tryEmit("The Mac didn’t answer. Try again.")
+                _notices.tryEmit(str(R.string.mac_didnt_answer))
             }
         }
         settingsTimeout = r
@@ -898,7 +948,7 @@ class Controller(private val context: Context) {
         when {
             m.menus != null -> _menus.value = MenuState(m.version, m.app, m.menus!!, m.note, m.stale == true)
             m.menu != null && m.items != null -> _menus.value = cur.copy(items = cur.items + (m.menu!! to m.items!!), stale = m.stale == true)
-            m.pressed != null -> if (m.pressed == false) _notices.tryEmit(m.note ?: "The Mac didn’t choose that item.")
+            m.pressed != null -> if (m.pressed == false) _notices.tryEmit(m.note ?: str(R.string.menu_not_chosen))
             m.note != null -> _notices.tryEmit(m.note!!)
         }
     }
@@ -930,11 +980,11 @@ class Controller(private val context: Context) {
     fun pasteOnMac(text: String) {
         val s = session ?: return
         val bytes = text.toByteArray()
-        if (bytes.size > Clipboard.MAX_TEXT_BYTES) { _clipboardNote.value = "That’s too long to send."; return }
+        if (bytes.size > Clipboard.MAX_TEXT_BYTES) { _clipboardNote.value = str(R.string.too_long); return }
         s.clipboard(Clipboard(text = text))
         val token = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
         val key = Base64URL.encode(token)
-        val miss = Runnable { receipts.remove(key); _clipboardNote.value = "Didn’t reach the Mac. Try again." }
+        val miss = Runnable { receipts.remove(key); _clipboardNote.value = str(R.string.didnt_reach_mac) }
         receipts[key] = miss
         main.postDelayed(miss, maxOf(4_000L, 4L * _stats.value.rttMs.coerceAtLeast(0)))
         s.receiptPing(token)

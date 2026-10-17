@@ -1,6 +1,9 @@
 package dev.remotemac.app.ui
 
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -47,6 +50,88 @@ data class VideoRect(val left: Float, val top: Float, val width: Float, val heig
         }
     }
 }
+
+/**
+ * Pinch zoom of the picture: how many times larger than fitted it is drawn and where it sits in its
+ * pane, in pixels. Touches map through the rect drawn, so they still land where they look.
+ */
+class PictureZoom {
+    var scale by mutableFloatStateOf(1f)
+        private set
+    private var left by mutableFloatStateOf(0f)
+    private var top by mutableFloatStateOf(0f)
+    private var fit: VideoRect? = null
+    private var boxW = 0f
+    private var boxH = 0f
+
+    val zoomed get() = scale > 1f
+
+    /** The [fit]ted picture as zoomed and panned now. */
+    fun apply(fit: VideoRect, boxW: Float, boxH: Float): VideoRect {
+        this.fit = fit; this.boxW = boxW; this.boxH = boxH
+        return current()
+    }
+
+    /** Fingers that were around [from] are now around [to], [factor] times as far apart. */
+    fun pinch(from: Offset, to: Offset, factor: Float) {
+        val f = fit ?: return
+        val cur = current()
+        val z = (scale * factor).coerceIn(1f, MAX_ZOOM)
+        val k = z / scale
+        val r = placed(to.x - (from.x - cur.left) * k, to.y - (from.y - cur.top) * k, f.width * z, f.height * z)
+        scale = z; left = r.left; top = r.top
+    }
+
+    /** A pinch let go of just past fitted goes back to fitted. */
+    fun settle() { if (scale < 1.15f) reset() }
+
+    fun reset() { scale = 1f }
+
+    /** Pans just far enough to keep [at] (a fraction of the picture) [margin] pixels inside the pane. */
+    fun follow(at: Pair<Double, Double>, margin: Float) {
+        if (!zoomed) return
+        val cur = current()
+        fun push(p: Float, room: Float) = when {
+            p < margin -> margin - p
+            p > room - margin -> room - margin - p
+            else -> 0f
+        }
+        val dx = push(cur.left + at.first.toFloat() * cur.width, boxW)
+        val dy = push(cur.top + at.second.toFloat() * cur.height, boxH)
+        if (dx == 0f && dy == 0f) return
+        val r = placed(cur.left + dx, cur.top + dy, cur.width, cur.height)
+        left = r.left; top = r.top
+    }
+
+    private fun current(): VideoRect {
+        val f = fit ?: return VideoRect(0f, 0f, boxW, boxH)
+        return if (scale <= 1f) f else placed(left, top, f.width * scale, f.height * scale)
+    }
+
+    private fun placed(l: Float, t: Float, w: Float, h: Float) = VideoRect(axis(l, w, boxW), axis(t, h, boxH), w, h)
+
+    /** Centered while it is narrower than the pane, else kept from leaving a gap at either edge. */
+    private fun axis(start: Float, len: Float, room: Float) = if (len <= room) (room - len) / 2 else start.coerceIn(room - len, 0f)
+}
+
+private const val MAX_ZOOM = 4f
+
+/** Two fingers: where they are around and how far apart. */
+private fun pairOf(p: List<PointerInputChange>): Pair<Offset, Float> =
+    (p[0].position + p[1].position) / 2f to (p[0].position - p[1].position).getDistance()
+
+/**
+ * Two fingers just past the slop: a pinch when they moved apart or together more than they moved
+ * along, or any stroke at all when [anyStroke] (the picture is zoomed and two fingers pan it).
+ */
+private fun isPinch(start: Pair<Offset, Float>?, now: Pair<Offset, Float>, anyStroke: Boolean): Boolean {
+    if (anyStroke) return true
+    val (c0, s0) = start ?: return false
+    return abs(now.second - s0) > (now.first - c0).getDistance()
+}
+
+/** Pointer gain by finger speed (dp/ms): slow strokes place the pointer finely, quick ones carry it across. */
+private fun pointerGain(speed: Float) = (0.55f + 1.4f * speed).coerceIn(0.55f, 2.8f)
 
 /** ⌃ ⌥ ⇧ ⌘ latched from the key row: they apply to the next key or click, then let go. */
 class ModifierLatch(private val state: MutableState<Long>) {
@@ -115,9 +200,12 @@ private fun withModifiers(c: Controller, mods: Long, click: () -> Unit) = c.with
  * Direct touch: the picture is the Mac's screen. A tap clicks there; a long press is a right click,
  * or, if the finger then moves, a drag; one or two fingers pan to scroll (with momentum); three or
  * four fingers make the Mac's trackpad gestures. A mouse, trackpad or stylus is the Mac's mouse.
+ * Given a [zoom], two fingers pinching zoom the picture, and once it is zoomed two fingers pan it.
  */
-fun Modifier.directInput(c: Controller, rect: () -> VideoRect?, latch: ModifierLatch, scope: CoroutineScope): Modifier = this
-    .pointerInput(Unit) {
+fun Modifier.directInput(
+    c: Controller, rect: () -> VideoRect?, latch: ModifierLatch, scope: CoroutineScope, zoom: PictureZoom? = null,
+): Modifier = this
+    .pointerInput(zoom) {
         val momentum = Momentum(scope, c, density)
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
@@ -139,6 +227,8 @@ fun Modifier.directInput(c: Controller, rect: () -> VideoRect?, latch: ModifierL
             val tracker = VelocityTracker()
             var lastCentroid = down.position
             var scrollAt = r0.clamped(down.position)
+            var twoStart: Pair<Offset, Float>? = null
+            var pinchLast: Pair<Offset, Float>? = null
 
             while (true) {
                 val event = if (!longFired && !scrolling && maxFingers == 1) {
@@ -154,6 +244,21 @@ fun Modifier.directInput(c: Controller, rect: () -> VideoRect?, latch: ModifierL
                 event.changes.forEach { ch -> if (ch.pressed && ch.id.value !in startPos) startPos[ch.id.value] = ch.position }
                 maxFingers = maxOf(maxFingers, pressed.size)
                 if (pressed.isNotEmpty()) lastEnd = pressed.map { it.position }
+                if (pressed.size == 2 && twoStart == null) twoStart = pairOf(pressed)
+
+                val from = pinchLast
+                if (from != null) {
+                    event.changes.forEach { it.consume() }
+                    if (pressed.size == 2) {
+                        val now = pairOf(pressed)
+                        if (from.second > 0f) zoom!!.pinch(from.first, now.first, now.second / from.second)
+                        pinchLast = now
+                        continue
+                    }
+                    zoom!!.settle()
+                    if (pressed.isNotEmpty()) while (awaitPointerEvent().changes.any { it.pressed }) { /* until all lift */ }
+                    return@awaitEachGesture
+                }
 
                 if (maxFingers >= 3) {
                     if (gestureStart == null || (pressed.size > (gestureStart?.size ?: 0))) gestureStart = pressed.map { it.position }
@@ -202,6 +307,11 @@ fun Modifier.directInput(c: Controller, rect: () -> VideoRect?, latch: ModifierL
                     continue
                 }
 
+                if (zoom != null && !scrolling && moved && pressed.size == 2 && isPinch(twoStart, pairOf(pressed), zoom.zoomed)) {
+                    pinchLast = pairOf(pressed)
+                    event.changes.forEach { it.consume() }
+                    continue
+                }
                 if (!scrolling && moved && pressed.isNotEmpty()) {
                     scrolling = true
                     scrollAt = r0.clamped(centroid)
@@ -302,6 +412,7 @@ var hapticLong: () -> Unit = {}
  * one finger moves the Mac's pointer from where it is, a tap clicks, two fingers tap for a right
  * click and pan to scroll, a long press then drag holds the button down, three or four fingers make
  * the Mac's gestures. Given the picture's [rect], a mouse or stylus there still points absolutely.
+ * Given a [zoom], two fingers pinching zoom the picture, and the view follows the pointer.
  */
 fun Modifier.trackpadInput(
     c: Controller,
@@ -309,8 +420,9 @@ fun Modifier.trackpadInput(
     cursor: MutableState<Pair<Double, Double>>,
     latch: ModifierLatch,
     scope: CoroutineScope,
+    zoom: PictureZoom? = null,
     rect: (() -> VideoRect?)? = null,
-): Modifier = this.pointerInput(Unit) {
+): Modifier = this.pointerInput(zoom) {
     val momentum = Momentum(scope, c, density)
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
@@ -332,6 +444,9 @@ fun Modifier.trackpadInput(
         val slop = 2 * density
         val tracker = VelocityTracker()
         var scrollCentroid = down.position
+        var twoStart: Pair<Offset, Float>? = null
+        var pinchLast: Pair<Offset, Float>? = null
+        var speed = 0f
 
         fun sendMove() { c.move(cursor.value.first, cursor.value.second) }
 
@@ -351,6 +466,20 @@ fun Modifier.trackpadInput(
             maxFingers = maxOf(maxFingers, pressed.size)
             if (pressed.isNotEmpty()) lastPressed = pressed.map { it.position }
             event.changes.forEach { it.consume() }
+            if (pressed.size == 2 && twoStart == null) twoStart = pairOf(pressed)
+
+            val from = pinchLast
+            if (from != null) {
+                if (pressed.size == 2) {
+                    val now = pairOf(pressed)
+                    if (from.second > 0f) zoom!!.pinch(from.first, now.first, now.second / from.second)
+                    pinchLast = now
+                    continue
+                }
+                zoom!!.settle()
+                if (pressed.isNotEmpty()) while (awaitPointerEvent().changes.any { it.pressed }) { /* until all lift */ }
+                return@awaitEachGesture
+            }
 
             if (maxFingers >= 3) {
                 if (gestureStart == null || pressed.size > (gestureStart?.size ?: 0)) gestureStart = pressed.map { it.position }
@@ -366,6 +495,10 @@ fun Modifier.trackpadInput(
             if (maxFingers == 2) {
                 val centroid = if (pressed.isEmpty()) scrollCentroid else pressed.map { it.position }.reduce { a, b -> a + b } / pressed.size.toFloat()
                 val movedFar = pressed.any { ((start[it.id.value] ?: it.position) - it.position).getDistance() > viewConfiguration.touchSlop }
+                if (zoom != null && !scrolling && movedFar && pressed.size == 2 && isPinch(twoStart, pairOf(pressed), false)) {
+                    pinchLast = pairOf(pressed)
+                    continue
+                }
                 if (!scrolling && movedFar && pressed.size == 2) {
                     scrolling = true
                     scrollCentroid = centroid
@@ -404,11 +537,15 @@ fun Modifier.trackpadInput(
                 if (!moving && (p.position - (start[p.id.value] ?: p.position)).getDistance() > slop) moving = true
                 if (moving) {
                     val d = p.position - prev
+                    val dt = (p.uptimeMillis - p.previousUptimeMillis).coerceAtLeast(1L)
+                    speed = speed * 0.6f + d.getDistance() / density / dt * 0.4f
+                    val gain = pointerGain(speed)
                     val (w, h) = span()
-                    val nx = (cursor.value.first + d.x / w * 1.25).coerceIn(0.0, 0.9999)
-                    val ny = (cursor.value.second + d.y / h * 1.25).coerceIn(0.0, 0.9999)
+                    val nx = (cursor.value.first + d.x / w * gain).coerceIn(0.0, 0.9999)
+                    val ny = (cursor.value.second + d.y / h * gain).coerceIn(0.0, 0.9999)
                     cursor.value = nx to ny
                     sendMove()
+                    zoom?.follow(cursor.value, 48 * density)
                 }
                 last[p.id.value] = p.position
             } else {

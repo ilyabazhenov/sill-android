@@ -17,12 +17,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.remotemac.app.MainActivity
+import dev.remotemac.app.R
 import dev.remotemac.app.stream.Controller
 import dev.remotemac.app.stream.Phase
 
@@ -40,6 +55,14 @@ fun AppTheme(content: @Composable () -> Unit) {
 @Composable
 fun AppRoot(controller: Controller, activity: MainActivity) {
     AppTheme {
+        val locked by activity.lock.locked.collectAsState()
+        if (locked) LockScreen(onUnlock = { activity.promptUnlock() }) else AppContent(controller, activity)
+    }
+}
+
+@Composable
+private fun AppContent(controller: Controller, activity: MainActivity) {
+    run {
         val phase by controller.phase.collectAsState()
         val windows by controller.windows.collectAsState()
         var scanning by remember { mutableStateOf(false) }
@@ -54,10 +77,11 @@ fun AppRoot(controller: Controller, activity: MainActivity) {
             when {
                 scanning -> QrScannerScreen(
                     onLink = { scanning = false; controller.pairLink(it) },
+                    onRelay = { scanning = false; controller.relayLink(it) },
                     onClose = { scanning = false },
                 )
                 streaming -> StreamScreen(controller, activity)
-                else -> ConnectScreen(controller, onScan = { scanning = true })
+                else -> ConnectScreen(controller, activity.lock, onScan = { scanning = true })
             }
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
@@ -69,11 +93,56 @@ fun AppRoot(controller: Controller, activity: MainActivity) {
         link?.let { l ->
             AlertDialog(
                 onDismissRequest = { activity.pendingLink.value = null },
-                title = { Text("Pair with ${l.name}?") },
-                text = { Text("This device will be able to see and control ${l.name}. Pair only with a Mac you own.") },
-                confirmButton = { TextButton({ activity.pendingLink.value = null; controller.pairLink(l) }) { Text("Pair") } },
-                dismissButton = { TextButton({ activity.pendingLink.value = null }) { Text("Cancel") } },
+                title = { Text(stringResource(R.string.pair_link_title, l.name)) },
+                text = { Text(stringResource(R.string.pair_link_body, l.name)) },
+                confirmButton = { TextButton({ activity.pendingLink.value = null; controller.pairLink(l) }) { Text(stringResource(R.string.pair)) } },
+                dismissButton = { TextButton({ activity.pendingLink.value = null }) { Text(stringResource(R.string.cancel)) } },
             )
+        }
+
+        val relay by activity.pendingRelay
+        relay?.let { r ->
+            val mac = controller.saved.byFingerprint(r.fingerprint)?.takeIf { !it.revoked }
+            AlertDialog(
+                onDismissRequest = { activity.pendingRelay.value = null },
+                title = { Text(if (mac != null) stringResource(R.string.relay_title, mac.name) else stringResource(R.string.relay_title_unpaired, r.name)) },
+                text = {
+                    Text(
+                        if (mac != null) stringResource(R.string.relay_body, mac.name, r.relay.host) else stringResource(R.string.relay_body_unpaired),
+                    )
+                },
+                confirmButton = {
+                    if (mac != null) TextButton({ activity.pendingRelay.value = null; controller.relayLink(r) }) { Text(stringResource(R.string.use_relay)) }
+                    else TextButton({ activity.pendingRelay.value = null }) { Text(stringResource(R.string.ok)) }
+                },
+                dismissButton = { if (mac != null) TextButton({ activity.pendingRelay.value = null }) { Text(stringResource(R.string.cancel)) } },
+            )
+        }
+    }
+}
+
+/** Over everything while the app is locked: nothing of the Mac shows, and no touch reaches it. */
+@Composable
+private fun LockScreen(onUnlock: () -> Unit) {
+    LaunchedEffect(Unit) { onUnlock() }
+    Surface(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(Icons.Default.Lock, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(16.dp))
+            Text(stringResource(R.string.locked_title), style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.locked_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = onUnlock) { Text(stringResource(R.string.unlock)) }
         }
     }
 }
