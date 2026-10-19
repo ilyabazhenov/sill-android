@@ -13,8 +13,8 @@ android {
         applicationId = "dev.sash.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     // The release key comes from the environment: SASH_KEYSTORE (path), SASH_KEYSTORE_PASSWORD, SASH_KEY_ALIAS.
