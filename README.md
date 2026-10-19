@@ -2,7 +2,7 @@
 
 Окна Mac и весь его рабочий стол на телефоне или планшете с Android. Управление касаниями, клавиатурой, мышью и стилусом.
 
-Это Android-клиент для [Sill](https://getsill.app) (открытый проект, Apache-2.0, [Saffsanity/sill](https://github.com/Saffsanity/sill)). На Mac работает стандартное приложение **Sill for Mac** без изменений. Это приложение говорит на его протоколе, поэтому iPhone/iPad с официальным Sill и Android-устройства подключаются к одному и тому же Mac.
+Это неофициальный Android-клиент для [Sill](https://getsill.app) (открытый проект, Apache-2.0, [Saffsanity/sill](https://github.com/Saffsanity/sill)). На Mac работает стандартное приложение **Sill for Mac** без изменений. Это приложение говорит на его протоколе, поэтому iPhone/iPad с официальным Sill и Android-устройства подключаются к одному и тому же Mac.
 
 ## Что умеет
 
@@ -120,3 +120,7 @@ protocol/build/install/protocol/bin/protocol 127.0.0.1 PORT --link 'sill://pair?
 ```
 
 Из эмулятора Android хост доступен по адресу `10.0.2.2:PORT`: «Add a Mac…» → адрес → код.
+
+## Лицензия
+
+[GPL-3.0](LICENSE). Sill — отдельный проект своих авторов под Apache-2.0; это приложение с ними не связано.
