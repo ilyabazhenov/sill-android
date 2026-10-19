@@ -17,12 +17,23 @@ android {
         versionName = "1.3"
     }
 
+    // The release key comes from the environment: RM_KEYSTORE (path), RM_KEYSTORE_PASSWORD, RM_KEY_ALIAS.
+    // Without it the release build is debug-signed, for testing only.
+    val releaseKeystore = System.getenv("RM_KEYSTORE")?.let(::file)
+    signingConfigs {
+        if (releaseKeystore != null) create("release") {
+            storeFile = releaseKeystore
+            storePassword = System.getenv("RM_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("RM_KEY_ALIAS") ?: "remotemac"
+            keyPassword = System.getenv("RM_KEYSTORE_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Debug-signed so the release APK installs for testing; sign with your own key to publish.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
     compileOptions {
