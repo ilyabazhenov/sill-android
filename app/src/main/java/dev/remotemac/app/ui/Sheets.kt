@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import dev.remotemac.app.MainActivity
 import dev.remotemac.app.R
 import dev.remotemac.app.stream.Controller
+import dev.remotemac.app.stream.orderedWindows
 import dev.remotemac.protocol.HostSettingsChange
 import dev.remotemac.protocol.MacMenuItem
 import dev.remotemac.protocol.QualityPreset
@@ -182,6 +183,7 @@ fun AppsSheet(c: Controller, activity: MainActivity, onDismiss: () -> Unit) {
     val windows by c.windows.collectAsState()
     val apps by c.apps.collectAsState()
     val icons by c.icons.collectAsState()
+    val appOrder by c.appOrder.collectAsState()
     var query by remember { mutableStateOf("") }
     DisposableEffect(Unit) {
         activity.textEntryActive = true
@@ -191,7 +193,7 @@ fun AppsSheet(c: Controller, activity: MainActivity, onDismiss: () -> Unit) {
         Column(Modifier.padding(horizontal = 16.dp)) {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), placeholder = { Text(stringResource(R.string.search_apps)) }, singleLine = true)
             val q = query.trim().lowercase()
-            val open = (windows?.windows ?: emptyList()).filter { q.isEmpty() || it.title.lowercase().contains(q) || it.appName.lowercase().contains(q) }
+            val open = orderedWindows(windows?.windows ?: emptyList(), appOrder).filter { q.isEmpty() || it.title.lowercase().contains(q) || it.appName.lowercase().contains(q) }
             val all = apps.filter { q.isEmpty() || it.name.lowercase().contains(q) }
             // Up to 520 dp tall, less where the screen is shorter, as a phone held sideways.
             LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().height(520.dp)) {

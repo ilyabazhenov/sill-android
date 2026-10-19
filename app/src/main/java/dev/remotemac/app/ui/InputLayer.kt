@@ -141,6 +141,8 @@ class ModifierLatch(private val state: MutableState<Long>) {
 }
 
 private const val LONG_PRESS_MS = 450L
+/** How long two fingers may rest on the trackpad and still count as a tap, a right click. */
+private const val TWO_FINGER_TAP_MS = 700L
 private const val MOMENTUM_MIN_DP_S = 150f
 
 /** Momentum after a fling: steps at 60 Hz, ×0.96 a step, until under 0.3 dp a step. */
@@ -341,12 +343,7 @@ fun Modifier.directInput(
                     // A tap: one finger clicks where it lands, two fingers are a right click.
                     if (r0.contains(down.position)) {
                         val (x, y) = r0.clamped(down.position)
-                        c.move(x, y)
-                        withModifiers(c, latch.take()) {
-                            if (maxFingers >= 2) { c.pointer(PointerAction.RIGHT_DOWN, x, y); c.pointer(PointerAction.RIGHT_UP, x, y) }
-                            else { c.pointer(PointerAction.LEFT_DOWN, x, y); c.pointer(PointerAction.LEFT_UP, x, y) }
-                        }
-                        if (maxFingers == 1) c.clicked(x, y)
+                        c.tapClick(x, y, secondary = maxFingers >= 2, mods = latch.take())
                     }
                     return@awaitEachGesture
                 }
@@ -519,7 +516,7 @@ fun Modifier.trackpadInput(
                             val (w, h) = span()
                             momentum.start(Offset(v.x, v.y), cursor.value) { VideoRect(0f, 0f, w, h) }
                         }
-                    } else if (android.os.SystemClock.uptimeMillis() - startTime < LONG_PRESS_MS) {
+                    } else if (android.os.SystemClock.uptimeMillis() - startTime < TWO_FINGER_TAP_MS) {
                         withModifiers(c, latch.take()) {
                             c.pointer(PointerAction.RIGHT_DOWN, cursor.value.first, cursor.value.second)
                             c.pointer(PointerAction.RIGHT_UP, cursor.value.first, cursor.value.second)

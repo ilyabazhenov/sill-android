@@ -44,13 +44,16 @@ import dev.remotemac.protocol.Session
 import dev.remotemac.protocol.SessionListener
 import dev.remotemac.protocol.SignedMacInfo
 import dev.remotemac.protocol.SillParity
+import dev.remotemac.protocol.PointerAction
 import dev.remotemac.protocol.StreamSource
 import dev.remotemac.protocol.TrackpadGesture
 import dev.remotemac.protocol.Transport
 import dev.remotemac.protocol.Viewport
 import dev.remotemac.protocol.WindowCommand
+import dev.remotemac.protocol.WindowInfo
 import dev.remotemac.protocol.WindowList
 import dev.remotemac.protocol.verified
+import kotlin.math.hypot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +67,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicInteger
@@ -181,15 +186,18 @@ class Controller(private val context: Context) {
     val gesturesOn = MutableStateFlow(prefs().getBoolean("gestures", true))
     /** Landscape: the picture is a trackpad (relative pointer) rather than direct touch. */
     val trackpadMode = MutableStateFlow(prefs().getBoolean("trackpadMode", false))
-    /** A click that lands in text brings up the software keyboard. */
+    /** A click that lands in text offers the software keyboard (a button by it for a few seconds). */
     val autoKeyboard = MutableStateFlow(prefs().getBoolean("autoKeyboard", true))
 
     private val _lastClick = MutableStateFlow<Pair<Double, Double>?>(null)
     /** Where the last plain click landed (frame fractions): the spot the keyboard keeps in sight. */
     val lastClick: StateFlow<Pair<Double, Double>?> = _lastClick
-    private val _clickedIntoText = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    /** A plain click that left the Mac's pointer an I-beam: a click into a text field. */
-    val clickedIntoText: SharedFlow<Unit> = _clickedIntoText
+    private val _textHint = MutableStateFlow(false)
+    /**
+     * A plain click left the Mac's pointer an I-beam in the window it was made in: likely a click
+     * into a text field, so the keyboard is offered. Cleared after [TEXT_HINT_MS] and by the next click.
+     */
+    val textHint: StateFlow<Boolean> = _textHint
     private var textWatch: Job? = null
 
     @Volatile private var session: Session? = null
@@ -210,6 +218,14 @@ class Controller(private val context: Context) {
     init {
         decoder.onVideoSize = { w, h -> _videoSize.value = w to h }
         decoder.onStall = { main.post { resync() } }
+        decoder.onNewSurface = { main.post { resync(force = true) } }
+        decoder.onFrameShown = { lastFrameAt = System.currentTimeMillis() }
+        scope.launch {
+            while (true) {
+                delay(1_000)
+                watchPicture()
+            }
+        }
     }
 
     private var lastResync = 0L
@@ -217,18 +233,49 @@ class Controller(private val context: Context) {
     /**
      * The decoder lost a frame and waits for a keyframe, which the Mac sends on its own only every
      * few seconds while the picture moves. Picking the source that already streams restarts the
-     * Mac's pipeline, which starts with a keyframe. At most once every 5 s.
+     * Mac's pipeline, which starts with a keyframe. At most once every 5 s, unless [force] (a new
+     * surface: the app back in front).
      */
-    private fun resync() {
+    private fun resync(force: Boolean = false) {
         val s = session ?: return
         val active = _windows.value?.active ?: return
         if (active == StreamSource.None) return
         val now = System.currentTimeMillis()
-        if (now - lastResync < 5_000) return
+        if (!force && now - lastResync < 5_000) return
         lastResync = now
-        Log.i(TAG, "decoder lost a frame; restarting the stream for a keyframe")
-        s.select(active)
+        Log.i(TAG, if (force) "new surface; restarting the stream for a keyframe" else "decoder lost a frame; restarting the stream for a keyframe")
+        askStream(s, active)
     }
+
+    // --- no picture: the Mac's display is off or locked
+
+    @Volatile private var lastFrameAt = 0L
+    /** When this device last asked the Mac to start a stream, which begins with a keyframe at once. */
+    private var streamAskedAt = 0L
+    private val _noPicture = MutableStateFlow(false)
+    /**
+     * A stream was asked for and no frame came within [NO_PICTURE_AFTER]: macOS captures nothing
+     * while the Mac's display is off, and Sill's clicks don't turn it on.
+     */
+    val noPicture: StateFlow<Boolean> = _noPicture
+
+    private fun askStream(s: Session, source: StreamSource) {
+        streamAskedAt = System.currentTimeMillis()
+        _noPicture.value = false
+        s.select(source)
+    }
+
+    /** Once a second: says so when no picture came, and asks again every 10 s for when the display wakes. */
+    private fun watchPicture() {
+        val now = System.currentTimeMillis()
+        val waiting = session != null && decoder.hasSurface && _phase.value == Phase.CONNECTED && _windows.value?.active.let { it != null && it != StreamSource.None } &&
+            streamAskedAt > 0 && lastFrameAt < streamAskedAt && now - streamAskedAt > NO_PICTURE_AFTER
+        _noPicture.value = waiting
+        if (waiting && now - lastResync >= 10_000) resync(force = true)
+    }
+
+    /** The user's "try again" under the no-picture note. */
+    fun retryPicture() = resync(force = true)
 
     private fun prefs() = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     private fun str(id: Int, vararg args: Any): String = context.getString(id, *args)
@@ -254,6 +301,33 @@ class Controller(private val context: Context) {
     fun setTrackpadMode(on: Boolean) {
         trackpadMode.value = on
         prefs().edit().putBoolean("trackpadMode", on).apply()
+    }
+
+    /**
+     * The order apps keep in the window strip, by bundle ID: the Mac lists windows most recent
+     * first, which reshuffles them at every switch. Apps join at the end when first seen.
+     */
+    private val _appOrder = MutableStateFlow(prefs().getString("appOrder", "")!!.split('\n').filter { it.isNotEmpty() })
+    val appOrder: StateFlow<List<String>> = _appOrder
+
+    private fun setAppOrder(order: List<String>) {
+        _appOrder.value = order
+        prefs().edit().putString("appOrder", order.joinToString("\n")).apply()
+    }
+
+    /** Moves [w]'s app one place left (-1) or right (+1) among the apps open now. */
+    fun moveApp(w: WindowInfo, by: Int) {
+        val open = orderedWindows(_windows.value?.windows ?: return, _appOrder.value).map { appKey(it) }.distinct()
+        val i = open.indexOf(appKey(w))
+        val j = i + by
+        if (i < 0 || j !in open.indices) return
+        val other = open[j]
+        val order = _appOrder.value.toMutableList()
+        val a = order.indexOf(appKey(w))
+        val b = order.indexOf(other)
+        if (a < 0 || b < 0) return
+        order[a] = other; order[b] = appKey(w)
+        setAppOrder(order)
     }
 
     fun setAutoKeyboard(on: Boolean) {
@@ -696,6 +770,8 @@ class Controller(private val context: Context) {
     private fun windowList(list: WindowList) {
         val s = session ?: return
         _windows.value = list
+        val newApps = list.windows.map { appKey(it) }.distinct().filter { it !in _appOrder.value }
+        if (newApps.isNotEmpty()) setAppOrder(_appOrder.value + newApps)
         // Thumbnails of windows that closed go with them.
         val open = list.windows.mapTo(HashSet()) { it.id }
         if (_thumbnails.value.keys.any { it !in open }) _thumbnails.value = _thumbnails.value.filterKeys { it in open }
@@ -720,7 +796,7 @@ class Controller(private val context: Context) {
                 lastAutoDesktop = now
                 main.postDelayed({
                     if (session === s && _windows.value?.active == StreamSource.None && System.currentTimeMillis() - lastUserPick > 2_000) {
-                        s.select(StreamSource.Desktop)
+                        askStream(s, StreamSource.Desktop)
                     }
                 }, if (firstListDone) 2_000 else 0)
             }
@@ -845,7 +921,7 @@ class Controller(private val context: Context) {
 
     fun select(source: StreamSource) {
         lastUserPick = System.currentTimeMillis()
-        session?.select(source)
+        session?.let { askStream(it, source) }
     }
 
     fun launchApp(bundleID: String) {
@@ -861,14 +937,45 @@ class Controller(private val context: Context) {
         session?.viewport(v)
     }
 
+    /** Where this device last put the Mac's pointer (frame fractions). */
+    private var lastPut: Pair<Double, Double>? = null
+    /** Taps' clicks, one after another: a waiting click is not overtaken by the next tap's. */
+    private val clicks = Mutex()
+
     fun pointer(action: String, x: Double, y: Double) {
         _macPointer.value = null
+        lastPut = x to y
         session?.input(Input.pointer(action, x, y))
     }
 
     fun move(x: Double, y: Double) {
         _macPointer.value = null
+        lastPut = x to y
         session?.pointerMove(x, y)
+    }
+
+    /**
+     * A tap's click at [x], [y] ([secondary]: the right button) with [mods] held. A pointer that
+     * jumps into a magnifying Dock makes its icons grow and slide under it, and a click sent with
+     * the jump lands while they move. So a jump to near the desktop's bottom or side edges (where
+     * the Dock lives) moves first and clicks once the Dock has settled.
+     */
+    fun tapClick(x: Double, y: Double, secondary: Boolean, mods: Long) {
+        val from = lastPut
+        move(x, y)
+        val jump = from == null || hypot(from.first - x, from.second - y) > 0.01
+        val nearEdge = y > 1 - DOCK_BAND || x < DOCK_BAND || x > 1 - DOCK_BAND
+        val wait = jump && nearEdge && _windows.value?.active == StreamSource.Desktop
+        scope.launch {
+            clicks.withLock {
+                if (wait) delay(DOCK_SETTLE_MS)
+                withModifiers(mods) {
+                    if (secondary) { pointer(PointerAction.RIGHT_DOWN, x, y); pointer(PointerAction.RIGHT_UP, x, y) }
+                    else { pointer(PointerAction.LEFT_DOWN, x, y); pointer(PointerAction.LEFT_UP, x, y) }
+                }
+                if (!secondary) clicked(x, y)
+            }
+        }
     }
 
     /**
@@ -880,13 +987,31 @@ class Controller(private val context: Context) {
     fun clicked(x: Double, y: Double) {
         _lastClick.value = x to y
         textWatch?.cancel()
+        _textHint.value = false
         if (!autoKeyboard.value) return
+        val before = windowState()
         textWatch = scope.launch {
-            delay(250L + _stats.value.rttMs.coerceIn(0, 500))
+            val rtt = _stats.value.rttMs.coerceIn(0, 500)
+            delay(250L + rtt)
             withTimeoutOrNull(600) { _cursor.first { it?.text == true } } ?: return@launch
-            _clickedIntoText.tryEmit(Unit)
+            // A click that opened or switched a window (a chat, a link, an app) leaves whatever the
+            // new one autofocuses under the pointer: not a click into text. The list may trail the
+            // cursor's shape, so it gets a moment more.
+            delay(150L + rtt / 2)
+            if (windowState() != before) return@launch
+            _textHint.value = true
+            delay(TEXT_HINT_MS)
+            _textHint.value = false
         }
     }
+
+    fun dismissTextHint() {
+        textWatch?.cancel()
+        _textHint.value = false
+    }
+
+    /** What a click that opens or switches a window changes: the stream, the windows, the front one and its title. */
+    private fun windowState(): Any? = _windows.value?.let { l -> Triple(l.active, l.windows.mapTo(HashSet()) { it.id }, l.windows.firstOrNull()?.let { it.id to it.title }) }
 
     fun scroll(x: Double, y: Double, dx: Double, dy: Double) = session?.input(Input.scroll(x, y, dx, dy))
     fun scrollPhase(phase: String, x: Double, y: Double) = session?.input(Input.scrollGesture(phase, x, y))
@@ -999,6 +1124,12 @@ class Controller(private val context: Context) {
     val isConnected get() = _phase.value == Phase.CONNECTED
 
     companion object {
+        private const val NO_PICTURE_AFTER = 4_000L
+        /** How near an edge (a fraction of the frame) a tap may be in the Dock. */
+        private const val DOCK_BAND = 0.15
+        /** How long the Dock takes to grow under a pointer that jumped into it. */
+        private const val DOCK_SETTLE_MS = 200L
+        private const val TEXT_HINT_MS = 3_000L
         private const val TAG = "Controller"
     }
 }
@@ -1011,4 +1142,13 @@ private fun isIBeam(bmp: android.graphics.Bitmap, c: Blobs.Cursor): Boolean {
     bmp.getPixels(px, 0, w, 0, 0, w, h)
     val opaque = BooleanArray(px.size) { (px[it] ushr 24) > 128 }
     return CursorShape.isIBeam(opaque, w, h, c.hotX * w / c.width, c.hotY * h / c.height)
+}
+
+/** What groups a window with its app's others: the bundle ID, else the app's name. */
+fun appKey(w: WindowInfo): String = w.bundleID.ifEmpty { w.appName }
+
+/** [windows] in a steady order: by app as [appOrder] has them, each app's windows oldest first. */
+fun orderedWindows(windows: List<WindowInfo>, appOrder: List<String>): List<WindowInfo> {
+    val rank = appOrder.withIndex().associate { (i, k) -> k to i }
+    return windows.sortedWith(compareBy({ rank[appKey(it)] ?: Int.MAX_VALUE }, { appKey(it) }, { it.id }))
 }

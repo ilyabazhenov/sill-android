@@ -91,8 +91,8 @@
     <string name="gestures_note">Вверх: Mission Control · вниз: App Exposé · влево/вправо: рабочие столы · сведение: приложения · разведение: рабочий стол.</string>
     <string name="trackpad_mode">Картинка как трекпад</string>
     <string name="trackpad_mode_note">В горизонтальном положении ведите пальцем в любом месте картинки, чтобы двигать указатель Mac; коснитесь, чтобы щёлкнуть. Выключено: щелчок там, где вы коснулись.</string>
-    <string name="auto_keyboard">Клавиатура для текстовых полей</string>
-    <string name="auto_keyboard_note">Щелчок по тексту на Mac (где указатель становится текстовым курсором) открывает клавиатуру.</string>
+    <string name="auto_keyboard">Кнопка клавиатуры у текстовых полей</string>
+    <string name="auto_keyboard_note">После щелчка по тексту на Mac (где указатель становится текстовым курсором) рядом на несколько секунд появляется кнопка, открывающая клавиатуру. Щелчки, открывающие или переключающие окно, её не показывают.</string>
     <string name="show_stats">Показывать статистику соединения</string>
 
     <!-- Quality presets -->
@@ -119,6 +119,8 @@
     <string name="desktop">Рабочий стол</string>
     <string name="settings">Настройки</string>
     <string name="reconnecting">Переподключение…</string>
+    <string name="no_picture">%1$s не присылает картинку: скорее всего, его экран выключен или заблокирован. Разбудите Mac или не давайте экрану гаснуть, пока пользуетесь приложением. Картинка вернётся сама.</string>
+    <string name="try_again">Повторить</string>
     <string name="disconnect_title">Отключиться от %1$s?</string>
     <string name="disconnect_body">Sill продолжит работать на Mac; нажмите на %1$s в списке, чтобы подключиться снова.</string>
     <string name="stay">Остаться</string>
@@ -132,6 +134,8 @@
     <string name="window_close">Закрыть</string>
     <string name="window_minimize">Свернуть</string>
     <string name="window_full_screen">Во весь экран</string>
+    <string name="move_app_left">%1$s левее</string>
+    <string name="move_app_right">%1$s правее</string>
     <string name="show_bar">Показать панель</string>
     <string name="fit_picture">Вписать картинку</string>
     <string name="trackpad">Трекпад</string>

@@ -21,7 +21,8 @@ class VideoDecoder {
     private val thread = HandlerThread("hevc").apply { start() }
     private val handler = Handler(thread.looper)
 
-    private var surface: Surface? = null
+    @Volatile private var surface: Surface? = null
+    val hasSurface: Boolean get() = surface != null
     private var codec: MediaCodec? = null
     private var params: List<ByteArray>? = null
     private var nalLength = 4
@@ -37,12 +38,18 @@ class VideoDecoder {
      * Mac for one directly; the owner restarts the stream, which begins with one.
      */
     @Volatile var onStall: (() -> Unit)? = null
+    /**
+     * A new surface (the app back from the background) shows nothing until a keyframe, and a Mac
+     * whose picture stands still sends none: the owner asks for one.
+     */
+    @Volatile var onNewSurface: (() -> Unit)? = null
 
     fun attach(s: Surface?) = handler.post {
         if (s === surface) return@post
         release()
         surface = s
         waitingForKeyframe = true
+        if (s != null) onNewSurface?.invoke()
     }
 
     fun parameterSets(ps: ParameterSets) = handler.post {
