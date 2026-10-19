@@ -1,4 +1,4 @@
-# Remote Mac: an Android client for Sill
+# Sash: an Android client for Sill
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 ![Android 10+](https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white)
@@ -47,7 +47,6 @@ This is an **unofficial** Android client for [Sill](https://getsill.app) (open s
   - "Paste on Mac" sends text from the phone.
 - **Mac settings from the phone**: quality (Low…Extreme), Retina/Standard, 60/120 fps, encoder speed priority, virtual display.
 - **Away from home**:
-  - through your own relay on a VPS, no Tailscale needed: a small helper runs next to Sill on the Mac ([relay/README.md](relay/README.md));
   - through a VPN (Tailscale and the like) or a forwarded port;
   - the Mac's addresses arrive in a signed message; the app tries them in parallel, 1 s apart.
 - **App lock**: fingerprint, face or PIN on open and after a minute in the background.
@@ -63,7 +62,7 @@ This is an **unofficial** Android client for [Sill](https://getsill.app) (open s
 1. Install **Sill for Mac** from [getsill.app](https://getsill.app/download) and open it. Grant Screen Recording and Accessibility.
 2. Download the APK from [Releases](https://github.com/ilyabazhenov/sill-android/releases/latest) and install it on Android, join the same Wi-Fi network and open the app.
 3. Tap your Mac. The first time, the Mac shows a QR code and a 12-digit code. Scan the QR or type the digits.
-4. Away from home: turn on Remote Access in Sill's settings on the Mac. Then either install Tailscale on both devices or run your own relay ([relay/README.md](relay/README.md)). The Mac shows up under "Away from home".
+4. Away from home: turn on Remote Access in Sill's settings on the Mac. Then either install Tailscale on both devices or forward Sill's port on your router. The Mac shows up under "Away from home".
 
 ## Building
 
@@ -96,7 +95,6 @@ The release build (`./gradlew :app:assembleRelease`) is signed with the key from
   - `InputLayer`: touches, trackpad, gestures;
   - `HidKeys`: keys to USB HID;
   - screens in `ui/`.
-- `relay/`: the relay in Go (`rmrelay` for the VPS, `rmhelper` for the Mac); design in [docs/relay.md](docs/relay.md).
 - `docs/sill-protocol-notes.md`: protocol notes taken from the iOS client and host code.
 - `tools/vectors/main.swift`: generates the golden vectors from Sill's Swift code.
 - `site/`: the project's landing page.

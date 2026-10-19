@@ -70,7 +70,6 @@ import dev.remotemac.app.R
 import dev.remotemac.app.stream.Controller
 import dev.remotemac.app.stream.PairingPrompt
 import dev.remotemac.protocol.PairLink
-import dev.remotemac.protocol.RelayLink
 import java.util.concurrent.Executors
 
 @Composable
@@ -146,9 +145,9 @@ private val CodeGrouping = androidx.compose.ui.text.input.VisualTransformation {
     )
 }
 
-/** The camera, looking for the Mac's `sill://pair` QR code, or the relay code from its helper. */
+/** The camera, looking for the Mac's `sill://pair` QR code. */
 @Composable
-fun QrScannerScreen(onLink: (PairLink) -> Unit, onRelay: (RelayLink) -> Unit, onClose: () -> Unit) {
+fun QrScannerScreen(onLink: (PairLink) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     var granted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
@@ -162,12 +161,9 @@ fun QrScannerScreen(onLink: (PairLink) -> Unit, onRelay: (RelayLink) -> Unit, on
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (granted) CameraPreview(onText = { t ->
             val link = PairLink.parse(t)
-            val relay = RelayLink.parse(t)
             when {
                 link != null -> onLink(link)
-                relay != null -> onRelay(relay)
                 t.startsWith("sill:") -> hint = R.string.scan_bad_pair_link
-                t.startsWith("remotemac:") -> hint = R.string.scan_bad_relay_link
             }
         })
         Box(Modifier.align(Alignment.Center).size(260.dp).border(3.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(24.dp)))
@@ -219,7 +215,7 @@ private fun CameraPreview(onText: (String) -> Unit) {
                         val text = result?.text
                         if (text != null) {
                             ContextCompat.getMainExecutor(context).execute {
-                                if (!done && (PairLink.parse(text) != null || RelayLink.parse(text) != null)) done = true
+                                if (!done && PairLink.parse(text) != null) done = true
                                 onText(text)
                             }
                         }

@@ -117,7 +117,7 @@ fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
                     items(away, key = { "saved:" + it.macID }) { mac ->
                         MacRow(
                             title = mac.name,
-                            word = if (mac.relay != null) stringResource(R.string.row_remote_relay) else stringResource(R.string.row_remote),
+                            word = stringResource(R.string.row_remote),
                             remote = true,
                             busy = phase == Phase.DIALING && controller.target.value?.name == mac.name,
                             onClick = { controller.connectRemote(mac) },

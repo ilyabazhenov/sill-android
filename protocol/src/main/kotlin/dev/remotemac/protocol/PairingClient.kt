@@ -5,7 +5,7 @@ import java.io.IOException
 /**
  * One pairing exchange (`sill-pair/1`): exactly one kind 19 from the device, one kind 20 back, then
  * the Mac closes. Each side takes the other's fingerprint from the TLS session, never from a
- * message, so a relay in the middle makes the proofs bind the wrong key and fail.
+ * message, so anyone in the middle makes the proofs bind the wrong key and fail.
  */
 object PairingClient {
     sealed class Outcome {

@@ -7,6 +7,5 @@ local.properties
 /reference/
 /captures/
 .kotlin/
+Sash-*.apk
 RemoteMac-*.apk
-/relay/rmrelay
-/relay/rmhelper

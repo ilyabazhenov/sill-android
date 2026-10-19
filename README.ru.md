@@ -1,4 +1,4 @@
-# Remote Mac: Android-клиент для Sill
+# Sash: Android-клиент для Sill
 
 [English](README.md) · **Русский**
 
@@ -42,7 +42,6 @@
   - «Paste on Mac» отправляет текст с телефона.
 - **Настройки Mac с телефона**: качество (Low…Extreme), Retina/Standard, 60/120 к/с, приоритет скорости кодирования, виртуальный дисплей.
 - **Удалённый доступ**:
-  - через свой relay на VPS, без Tailscale: на Mac рядом с Sill работает маленький helper ([relay/README.md](relay/README.md));
   - через VPN (Tailscale и т.п.) или проброшенный порт;
   - адреса Mac приходят в подписанном сообщении; приложение пробует их параллельно, с шагом в 1 с.
 - **Блокировка приложения**: отпечаток, лицо или PIN при открытии и после минуты в фоне.
@@ -58,7 +57,7 @@
 1. Установите **Sill for Mac** с [getsill.app](https://getsill.app/download) и откройте его. Выдайте разрешения Screen Recording и Accessibility.
 2. Скачайте APK из [Releases](https://github.com/ilyabazhenov/sill-android/releases/latest), установите на Android, подключитесь к той же Wi-Fi сети и откройте приложение.
 3. Нажмите на свой Mac. В первый раз Mac покажет QR-код и 12-значный код. Отсканируйте QR или введите цифры.
-4. Вне дома: включите Remote Access в настройках Sill на Mac. Дальше одно из двух: Tailscale на обоих устройствах или свой relay ([relay/README.md](relay/README.md)). Mac появится в разделе «Away from home».
+4. Вне дома: включите Remote Access в настройках Sill на Mac. Дальше одно из двух: Tailscale на обоих устройствах или проброс порта Sill на роутере. Mac появится в разделе «Away from home».
 
 ## Сборка
 
@@ -91,7 +90,6 @@ Release-сборка (`./gradlew :app:assembleRelease`) подписываетс
   - `InputLayer`: касания, трекпад, жесты;
   - `HidKeys`: клавиши в USB HID;
   - экраны в `ui/`.
-- `relay/`: relay на Go (`rmrelay` для VPS, `rmhelper` для Mac), устройство в `docs/relay.md`.
 - `docs/sill-protocol-notes.md`: заметки о протоколе по коду iOS-клиента и хоста.
 - `tools/vectors/main.swift`: генератор эталонных векторов из Swift-кода Sill.
 - `site/`: лендинг проекта.

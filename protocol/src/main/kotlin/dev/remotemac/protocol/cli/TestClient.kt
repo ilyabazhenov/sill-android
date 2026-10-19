@@ -15,8 +15,6 @@ import dev.remotemac.protocol.PairLink
 import dev.remotemac.protocol.PairingClient
 import dev.remotemac.protocol.ParameterSets
 import dev.remotemac.protocol.PointerAction
-import dev.remotemac.protocol.Relay
-import dev.remotemac.protocol.RelayLink
 import dev.remotemac.protocol.Session
 import dev.remotemac.protocol.SessionListener
 import dev.remotemac.protocol.SignedMacInfo
@@ -35,7 +33,6 @@ import java.util.concurrent.TimeUnit
  * `SillHost --synthetic` on this Mac's loopback, which posts no input.
  *
  *   TestClient HOST PORT [--identity DIR] [--link URL | --ask | --code DIGITS | --plain] [--seconds N]
- *              [--relay-link remotemac://relay?…]   the session through the relay instead of HOST PORT
  */
 fun main(args: Array<String>) {
     val host = args[0]
@@ -74,18 +71,7 @@ fun main(args: Array<String>) {
         Transport.plain(host, port)
     } else {
         val pin = if (pinFile.exists()) Base64URL.decode(pinFile.readText().trim()) else null
-        val relay = opt("--relay-link")?.let { RelayLink.parse(it) ?: error("not a relay link") }
-        if (relay != null) {
-            val raw = Relay.dial(relay.relay.host, relay.relay.port!!, relay.idBytes, Base64URL.decode(relay.access)!!)
-            println("relay ${relay.relay.text}: the Mac answered")
-            try {
-                Transport.tls(relay.relay.host, relay.relay.port, identity, Alpn.SESSION, pin ?: relay.fingerprint, over = raw)
-            } catch (e: Exception) {
-                throw Relay.explain(e)
-            }
-        } else {
-            Transport.tls(host, port, identity, Alpn.SESSION, pin)
-        }
+        Transport.tls(host, port, identity, Alpn.SESSION, pin)
     }
     println("connected tls=${transport.isTls} alpn=${transport.alpn} mac=${transport.peerFingerprint?.let { Base64URL.encode(it) }}")
     val done = CountDownLatch(1)

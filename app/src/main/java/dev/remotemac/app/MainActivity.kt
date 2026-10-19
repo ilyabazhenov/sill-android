@@ -20,7 +20,6 @@ import dev.remotemac.app.stream.HidKeys
 import dev.remotemac.app.stream.Phase
 import dev.remotemac.app.ui.AppRoot
 import dev.remotemac.protocol.PairLink
-import dev.remotemac.protocol.RelayLink
 
 class MainActivity : ComponentActivity() {
     private val controller get() = (application as App).controller
@@ -28,8 +27,6 @@ class MainActivity : ComponentActivity() {
 
     /** A `sill://pair` link waiting for the person's confirmation. */
     val pendingLink = mutableStateOf<PairLink?>(null)
-    /** A `remotemac://relay` link from outside the app: any app or page can open one, so it waits too. */
-    val pendingRelay = mutableStateOf<RelayLink?>(null)
     private var wentBackground = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +44,6 @@ class MainActivity : ComponentActivity() {
     private fun handle(intent: Intent?) {
         val data = intent?.data?.toString() ?: return
         PairLink.parse(data)?.let { pendingLink.value = it }
-        RelayLink.parse(data)?.let { pendingRelay.value = it }
     }
 
     override fun onStart() {

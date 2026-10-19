@@ -38,8 +38,6 @@ import dev.remotemac.protocol.ParameterSets
 import dev.remotemac.protocol.ParsedAddress
 import dev.remotemac.protocol.PinRefused
 import dev.remotemac.protocol.PressMenuItem
-import dev.remotemac.protocol.Relay
-import dev.remotemac.protocol.RelayLink
 import dev.remotemac.protocol.Session
 import dev.remotemac.protocol.SessionListener
 import dev.remotemac.protocol.SignedMacInfo
@@ -280,16 +278,9 @@ class Controller(private val context: Context) {
     private fun prefs() = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     private fun str(id: Int, vararg args: Any): String = context.getString(id, *args)
 
-    /**
-     * Through the relay the Mac's copies cross the internet, so sharing there is its own choice,
-     * off until turned on; at home (and over a VPN) it stays as it was.
-     */
-    private var viaRelay = false
-    private val clipboardKey get() = if (viaRelay) "shareClipboardRelay" else "shareClipboard"
-
     fun setShareClipboard(on: Boolean) {
         shareClipboard.value = on
-        prefs().edit().putBoolean(clipboardKey, on).apply()
+        prefs().edit().putBoolean("shareClipboard", on).apply()
         if ((_windows.value?.clipboard ?: 0) >= 1) session?.clipboard(if (on) Clipboard() else Clipboard(stop = true))
     }
 
@@ -396,10 +387,10 @@ class Controller(private val context: Context) {
         }
     }
 
-    /** One way to the Mac from afar: its remote door at [host]:[port], or through the relay there. */
-    private data class Way(val host: String, val port: Int, val relayID: ByteArray? = null, val access: ByteArray? = null) {
+    /** One way to the Mac from afar: its remote door at [host]:[port]. */
+    private data class Way(val host: String, val port: Int) {
         /** What [SavedMac.lastWorked] keeps. */
-        val text: String get() = (if (relayID != null) "relay:" else "") + ParsedAddress(host, port).text
+        val text: String get() = ParsedAddress(host, port).text
     }
 
     /**
@@ -413,24 +404,15 @@ class Controller(private val context: Context) {
         if (candidates.isEmpty()) error(str(R.string.no_address_for, mac.name))
         val winner = CompletableDeferred<Pair<Transport, String>>()
         val failures = AtomicInteger(0)
-        // A relay's answer says more than a timeout elsewhere ("the Mac isn't on the relay"), so
-        // when everything fails, that's the error shown.
-        var relayError: Exception? = null
         val jobs = candidates.mapIndexed { i, way ->
             scope.launch(Dispatchers.IO) {
                 delay(i * 1000L)
                 if (winner.isCompleted) return@launch
                 try {
-                    val over = way.relayID?.let { Relay.dial(way.host, way.port, it, way.access!!) }
-                    val tr = try {
-                        Transport.tls(way.host, way.port, id, Alpn.SESSION, mac.pin, over = over)
-                    } catch (e: Exception) {
-                        throw if (over != null) Relay.explain(e) else e
-                    }
+                    val tr = Transport.tls(way.host, way.port, id, Alpn.SESSION, mac.pin)
                     if (!winner.complete(tr to way.text)) tr.close()
                 } catch (e: Exception) {
-                    if (way.relayID != null) relayError = e
-                    if (failures.incrementAndGet() == candidates.size) winner.completeExceptionally(relayError ?: e)
+                    if (failures.incrementAndGet() == candidates.size) winner.completeExceptionally(e)
                 }
             }
         }
@@ -446,39 +428,21 @@ class Controller(private val context: Context) {
                 runCatching { winner.getCompleted().first.close() }
             }
         }
-        val won = got ?: throw (relayError ?: java.io.IOException(str(R.string.didnt_answer, mac.name)))
+        val won = got ?: throw java.io.IOException(str(R.string.didnt_answer, mac.name))
         saved.update(mac.macID) { it.copy(lastWorked = won.second) }
         return won.first
     }
 
-    /** Sill's own addresses first (VPN, LAN, internet, typed), the relay last, unless it worked last time. */
+    /** The address that worked last time first, then Sill's own (VPN, LAN, internet), then typed ones. */
     private fun remoteCandidates(mac: SavedMac): List<Way> {
-        val access = mac.relayAccess?.let { Base64URL.decode(it) }
-        val relay = mac.relay?.let { ParsedAddress.parse(it) }?.takeIf { it.port != null && mac.relayID != null && access != null }
-            ?.let { Way(it.host, it.port!!, RelayLink.idBytes(mac.relayID!!), access) }
         val out = LinkedHashMap<String, Way>()
         fun add(w: Way) { out.putIfAbsent(w.text, w) }
         fun direct(a: ParsedAddress) = add(Way(a.host, a.port ?: mac.remotePort))
-        val last = mac.lastWorked
-        when {
-            last == null -> {}
-            last.startsWith("relay:") -> if (relay != null && relay.text == last) add(relay)
-            else -> ParsedAddress.parse(last)?.let(::direct)
-        }
+        mac.lastWorked?.let { ParsedAddress.parse(it) }?.let(::direct)
         val rank = mapOf("vpn" to 0, "lan" to 1, "internet" to 2)
         mac.addresses.sortedBy { rank[it.kind] ?: 3 }.forEach { add(Way(it.host, it.port ?: mac.remotePort)) }
         mac.typedAddresses.mapNotNull { ParsedAddress.parse(it) }.forEach(::direct)
-        relay?.let(::add)
         return out.values.toList()
-    }
-
-    /** A `remotemac://relay` link from the Mac's helper. */
-    fun relayLink(link: RelayLink) {
-        val mac = saved.learnRelay(link)
-        _notices.tryEmit(
-            if (mac != null) str(R.string.relay_learned, mac.name)
-            else str(R.string.relay_pair_first, link.name)
-        )
     }
 
     private fun dialFailed(t: Target, e: Throwable, reconnecting: Boolean) {
@@ -650,13 +614,10 @@ class Controller(private val context: Context) {
         sessionSaved = mac
         firstList = true
         lastGoodbye = null
-        viaRelay = t is Target.Remote && saved.byID(t.mac.macID)?.lastWorked?.startsWith("relay:") == true
         _route.value = when {
-            viaRelay -> str(R.string.route_relay)
             t is Target.Remote -> remoteRoute(transport)
             else -> if (transport.isTls) null else str(R.string.route_unencrypted)
         }
-        shareClipboard.value = prefs().getBoolean(clipboardKey, !viaRelay)
         val events = SessionEvents()
         val s = Session(transport, deviceName, SillParity.VERSION, events)
         events.me = s
@@ -876,7 +837,7 @@ class Controller(private val context: Context) {
             }
             val next = when {
                 row != null -> Target.Row(row, mac)
-                mac != null && (mac.addresses.isNotEmpty() || mac.typedAddresses.isNotEmpty() || mac.lastWorked != null || mac.relay != null) -> Target.Remote(mac)
+                mac != null && (mac.addresses.isNotEmpty() || mac.typedAddresses.isNotEmpty() || mac.lastWorked != null) -> Target.Remote(mac)
                 t is Target.Address -> t
                 else -> null
             }

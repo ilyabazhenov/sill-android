@@ -1,9 +1,8 @@
 <resources>
-    <string name="app_name">Remote Mac</string>
+    <string name="app_name">Sash</string>
 
     <!-- Common -->
     <string name="cancel">Cancel</string>
-    <string name="ok">OK</string>
     <string name="close">Close</string>
     <string name="back">Back</string>
     <string name="pair">Pair</string>
@@ -11,20 +10,15 @@
     <string name="the_mac">the Mac</string>
 
     <!-- App lock -->
-    <string name="locked_title">Remote Mac is locked</string>
+    <string name="locked_title">Sash is locked</string>
     <string name="locked_body">This app controls your Mac. Unlock with your fingerprint, face or screen lock.</string>
     <string name="unlock">Unlock</string>
-    <string name="unlock_prompt_title">Unlock Remote Mac</string>
+    <string name="unlock_prompt_title">Unlock Sash</string>
     <string name="unlock_prompt_subtitle">This app controls your Mac</string>
 
-    <!-- Pairing and relay links -->
+    <!-- Pairing links -->
     <string name="pair_link_title">Pair with %1$s?</string>
     <string name="pair_link_body">This device will be able to see and control %1$s. Pair only with a Mac you own.</string>
-    <string name="relay_title">Reach %1$s through a relay?</string>
-    <string name="relay_title_unpaired">Pair with %1$s first</string>
-    <string name="relay_body">Away from home, this device will connect to %1$s through %2$s. Use only the code that rmhelper shows on your own Mac.</string>
-    <string name="relay_body_unpaired">This relay code is for a Mac this device hasn’t paired with. Pair at home, then scan it again.</string>
-    <string name="use_relay">Use Relay</string>
     <string name="pairing_enter_code">Enter the code from %1$s</string>
     <string name="pairing_with">Pairing with %1$s</string>
     <string name="pairing_asking">Asking %1$s to show its code…</string>
@@ -33,7 +27,6 @@
     <string name="scan_qr">Scan QR</string>
     <string name="scan_hint">Point the camera at the QR code on your Mac.</string>
     <string name="scan_bad_pair_link">That pairing link is damaged or from a newer Sill.</string>
-    <string name="scan_bad_relay_link">That relay code is damaged. Print it again with rmhelper link.</string>
     <string name="scan_no_camera">Allow the camera to scan the Mac’s code, or type its code instead.</string>
 
     <!-- Connect screen -->
@@ -42,14 +35,13 @@
     <string name="browse_failed">Can’t look for Macs on this network. Check Wi‑Fi.</string>
     <string name="browsing">Looking for Macs with Sill open…</string>
     <string name="section_away">Away from home</string>
-    <string name="row_remote_relay">Remote · relay</string>
     <string name="row_remote">Remote</string>
     <string name="row_not_encrypted">Not encrypted</string>
     <string name="row_wifi">Wi‑Fi</string>
     <string name="row_not_paired">Not paired</string>
     <string name="scan_pairing_code">Scan Pairing Code</string>
     <string name="add_mac_more">Add a Mac…</string>
-    <string name="connect_help">On the Mac: open Sill, then tap the Mac here. The first time, the Mac shows a code to scan or type. Away from home, turn on Remote Access in Sill’s settings and use a VPN such as Tailscale, or run the relay helper on the Mac and scan its code.</string>
+    <string name="connect_help">On the Mac: open Sill, then tap the Mac here. The first time, the Mac shows a code to scan or type. Away from home, turn on Remote Access in Sill’s settings and use a VPN such as Tailscale, or forward its port on your router.</string>
     <string name="lock_app">Lock this app</string>
     <string name="lock_app_note">Ask for your fingerprint, face or screen lock on opening and after a minute away.</string>
     <string name="forget_title">Forget %1$s?</string>
@@ -150,8 +142,6 @@
     <string name="reconnecting_to">Reconnecting to %1$s…</string>
     <string name="no_address_for">No address for %1$s: pair it at home with Remote Access on, or add its address.</string>
     <string name="didnt_answer">%1$s didn’t answer.</string>
-    <string name="relay_learned">%1$s can now be reached through the relay.</string>
-    <string name="relay_pair_first">Pair with %1$s first, then scan its relay code again.</string>
     <string name="new_key">%1$s has a new key since this device paired. Tap it to pair again.</string>
     <string name="asks_to_pair">%1$s asks devices to pair. Tap it to pair.</string>
     <string name="refused_device">%1$s refused this device. It may have been removed on the Mac: pair it again.</string>
@@ -160,7 +150,6 @@
     <string name="stopped_trying">Stopped trying to reach %1$s. Tap it to try again.</string>
     <string name="not_an_address">That isn’t an address.</string>
     <string name="route_unencrypted">unencrypted</string>
-    <string name="route_relay">through the relay</string>
     <string name="route_tailscale">through Tailscale</string>
     <string name="route_afar">from afar</string>
 

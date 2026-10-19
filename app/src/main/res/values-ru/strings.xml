@@ -1,7 +1,6 @@
 <resources>
     <!-- Common -->
     <string name="cancel">Отмена</string>
-    <string name="ok">ОК</string>
     <string name="close">Закрыть</string>
     <string name="back">Назад</string>
     <string name="pair">Создать пару</string>
@@ -9,20 +8,15 @@
     <string name="the_mac">Mac</string>
 
     <!-- App lock -->
-    <string name="locked_title">Remote Mac заблокирован</string>
+    <string name="locked_title">Sash заблокирован</string>
     <string name="locked_body">Это приложение управляет вашим Mac. Разблокируйте его отпечатком пальца, по лицу или блокировкой экрана.</string>
     <string name="unlock">Разблокировать</string>
-    <string name="unlock_prompt_title">Разблокировка Remote Mac</string>
+    <string name="unlock_prompt_title">Разблокировка Sash</string>
     <string name="unlock_prompt_subtitle">Это приложение управляет вашим Mac</string>
 
-    <!-- Pairing and relay links -->
+    <!-- Pairing links -->
     <string name="pair_link_title">Создать пару с %1$s?</string>
     <string name="pair_link_body">Это устройство сможет видеть %1$s и управлять им. Создавайте пару только со своим Mac.</string>
-    <string name="relay_title">Подключаться к %1$s через ретранслятор?</string>
-    <string name="relay_title_unpaired">Сначала создайте пару с %1$s</string>
-    <string name="relay_body">Вне дома это устройство будет подключаться к %1$s через %2$s. Используйте только код, который rmhelper показывает на вашем собственном Mac.</string>
-    <string name="relay_body_unpaired">Этот код ретранслятора относится к Mac, с которым у этого устройства нет пары. Создайте пару дома, затем отсканируйте код снова.</string>
-    <string name="use_relay">Через ретранслятор</string>
     <string name="pairing_enter_code">Введите код с %1$s</string>
     <string name="pairing_with">Сопряжение с %1$s</string>
     <string name="pairing_asking">Просим %1$s показать код…</string>
@@ -31,7 +25,6 @@
     <string name="scan_qr">Сканировать QR</string>
     <string name="scan_hint">Наведите камеру на QR-код на экране Mac.</string>
     <string name="scan_bad_pair_link">Ссылка для сопряжения повреждена или создана более новой версией Sill.</string>
-    <string name="scan_bad_relay_link">Код ретранслятора повреждён. Выведите его снова командой rmhelper link.</string>
     <string name="scan_no_camera">Разрешите доступ к камере, чтобы отсканировать код Mac, или введите код вручную.</string>
 
     <!-- Connect screen -->
@@ -40,14 +33,13 @@
     <string name="browse_failed">Не удаётся искать Mac в этой сети. Проверьте Wi‑Fi.</string>
     <string name="browsing">Ищем Mac с открытым Sill…</string>
     <string name="section_away">Вне дома</string>
-    <string name="row_remote_relay">Удалённо · ретранслятор</string>
     <string name="row_remote">Удалённо</string>
     <string name="row_not_encrypted">Без шифрования</string>
     <string name="row_wifi">Wi‑Fi</string>
     <string name="row_not_paired">Нет пары</string>
     <string name="scan_pairing_code">Сканировать код сопряжения</string>
     <string name="add_mac_more">Добавить Mac…</string>
-    <string name="connect_help">На Mac откройте Sill, затем нажмите на Mac здесь. В первый раз Mac покажет код — отсканируйте или введите его. Вне дома включите Remote Access в настройках Sill и используйте VPN, например Tailscale, или запустите на Mac помощник ретранслятора и отсканируйте его код.</string>
+    <string name="connect_help">На Mac откройте Sill, затем нажмите на Mac здесь. В первый раз Mac покажет код — отсканируйте или введите его. Вне дома включите Remote Access в настройках Sill и используйте VPN, например Tailscale, или пробросьте его порт на роутере.</string>
     <string name="lock_app">Блокировать приложение</string>
     <string name="lock_app_note">Запрашивать отпечаток, лицо или блокировку экрана при открытии и после минуты в фоне.</string>
     <string name="forget_title">Забыть %1$s?</string>
@@ -148,8 +140,6 @@
     <string name="reconnecting_to">Переподключение к %1$s…</string>
     <string name="no_address_for">Нет адреса для %1$s: создайте пару дома с включённым Remote Access или добавьте его адрес.</string>
     <string name="didnt_answer">%1$s не отвечает.</string>
-    <string name="relay_learned">Теперь %1$s доступен через ретранслятор.</string>
-    <string name="relay_pair_first">Сначала создайте пару с %1$s, затем снова отсканируйте код ретранслятора.</string>
     <string name="new_key">У %1$s новый ключ с момента создания пары. Нажмите на него, чтобы создать пару заново.</string>
     <string name="asks_to_pair">%1$s принимает только устройства с парой. Нажмите на него, чтобы создать пару.</string>
     <string name="refused_device">%1$s не принял это устройство. Возможно, его удалили на Mac — создайте пару заново.</string>
@@ -158,7 +148,6 @@
     <string name="stopped_trying">Попытки подключиться к %1$s прекращены. Нажмите на него, чтобы попробовать снова.</string>
     <string name="not_an_address">Это не адрес.</string>
     <string name="route_unencrypted">без шифрования</string>
-    <string name="route_relay">через ретранслятор</string>
     <string name="route_tailscale">через Tailscale</string>
     <string name="route_afar">удалённо</string>
 

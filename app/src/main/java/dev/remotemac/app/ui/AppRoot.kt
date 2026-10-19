@@ -77,7 +77,6 @@ private fun AppContent(controller: Controller, activity: MainActivity) {
             when {
                 scanning -> QrScannerScreen(
                     onLink = { scanning = false; controller.pairLink(it) },
-                    onRelay = { scanning = false; controller.relayLink(it) },
                     onClose = { scanning = false },
                 )
                 streaming -> StreamScreen(controller, activity)
@@ -97,25 +96,6 @@ private fun AppContent(controller: Controller, activity: MainActivity) {
                 text = { Text(stringResource(R.string.pair_link_body, l.name)) },
                 confirmButton = { TextButton({ activity.pendingLink.value = null; controller.pairLink(l) }) { Text(stringResource(R.string.pair)) } },
                 dismissButton = { TextButton({ activity.pendingLink.value = null }) { Text(stringResource(R.string.cancel)) } },
-            )
-        }
-
-        val relay by activity.pendingRelay
-        relay?.let { r ->
-            val mac = controller.saved.byFingerprint(r.fingerprint)?.takeIf { !it.revoked }
-            AlertDialog(
-                onDismissRequest = { activity.pendingRelay.value = null },
-                title = { Text(if (mac != null) stringResource(R.string.relay_title, mac.name) else stringResource(R.string.relay_title_unpaired, r.name)) },
-                text = {
-                    Text(
-                        if (mac != null) stringResource(R.string.relay_body, mac.name, r.relay.host) else stringResource(R.string.relay_body_unpaired),
-                    )
-                },
-                confirmButton = {
-                    if (mac != null) TextButton({ activity.pendingRelay.value = null; controller.relayLink(r) }) { Text(stringResource(R.string.use_relay)) }
-                    else TextButton({ activity.pendingRelay.value = null }) { Text(stringResource(R.string.ok)) }
-                },
-                dismissButton = { if (mac != null) TextButton({ activity.pendingRelay.value = null }) { Text(stringResource(R.string.cancel)) } },
             )
         }
     }
