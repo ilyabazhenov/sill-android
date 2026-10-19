@@ -56,7 +56,7 @@
 ## Как пользоваться
 
 1. Установите **Sill for Mac** с [getsill.app](https://getsill.app/download) и откройте его. Выдайте разрешения Screen Recording и Accessibility.
-2. Установите APK на Android, подключитесь к той же Wi-Fi сети и откройте приложение.
+2. Скачайте APK из [Releases](https://github.com/ilyabazhenov/sill-android/releases/latest), установите на Android, подключитесь к той же Wi-Fi сети и откройте приложение.
 3. Нажмите на свой Mac. В первый раз Mac покажет QR-код и 12-значный код. Отсканируйте QR или введите цифры.
 4. Вне дома: включите Remote Access в настройках Sill на Mac. Дальше одно из двух: Tailscale на обоих устройствах или свой relay ([relay/README.md](relay/README.md)). Mac появится в разделе «Away from home».
 
@@ -72,7 +72,7 @@
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Release-сборка (`./gradlew :app:assembleRelease`) подписана debug-ключом, только для проверки. Для публикации подпишите своим ключом.
+Release-сборка (`./gradlew :app:assembleRelease`) подписывается ключом из `RM_KEYSTORE` (путь к keystore), `RM_KEYSTORE_PASSWORD` и `RM_KEY_ALIAS`; без них — debug-ключом, только для проверки.
 
 ## Устройство проекта
 

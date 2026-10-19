@@ -3,6 +3,7 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 ![Android 10+](https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
+[![Latest release](https://img.shields.io/github/v/release/ilyabazhenov/sill-android)](https://github.com/ilyabazhenov/sill-android/releases/latest)
 
 **English** · [Русский](README.ru.md)
 
@@ -60,7 +61,7 @@ This is an **unofficial** Android client for [Sill](https://getsill.app) (open s
 ## Getting started
 
 1. Install **Sill for Mac** from [getsill.app](https://getsill.app/download) and open it. Grant Screen Recording and Accessibility.
-2. Install the APK on Android, join the same Wi-Fi network and open the app.
+2. Download the APK from [Releases](https://github.com/ilyabazhenov/sill-android/releases/latest) and install it on Android, join the same Wi-Fi network and open the app.
 3. Tap your Mac. The first time, the Mac shows a QR code and a 12-digit code. Scan the QR or type the digits.
 4. Away from home: turn on Remote Access in Sill's settings on the Mac. Then either install Tailscale on both devices or run your own relay ([relay/README.md](relay/README.md)). The Mac shows up under "Away from home".
 
@@ -76,7 +77,7 @@ Needs JDK 17+ and the Android SDK (compileSdk 36). The app runs on Android 10 (A
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The release build (`./gradlew :app:assembleRelease`) is signed with the debug key, for testing only. Sign it with your own key to distribute it.
+The release build (`./gradlew :app:assembleRelease`) is signed with the key from `RM_KEYSTORE` (keystore path), `RM_KEYSTORE_PASSWORD` and `RM_KEY_ALIAS`; without them it is debug-signed, for testing only.
 
 ## Project layout
 
