@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Remote Mac</title>
-<meta name="description" content="Remote Mac: окна и рабочий стол Mac на Android. Android client for the Sill Mac host.">
+<title>Sash</title>
+<meta name="description" content="Sash: окна и рабочий стол Mac на Android, клиент для Sill. Your Mac’s windows on Android, a client for Sill.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
@@ -898,7 +898,7 @@ footer p { max-width: 46em; }
 
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="Remote Mac">
+    <a class="brand" href="#top" aria-label="Sash">
       <svg viewBox="0 0 108 108" aria-hidden="true">
         <path fill="#1C1F26" d="M0,0h108v108h-108z"/>
         <path fill="#3A7BFF" d="M26,28h56a6,6 0,0 1,6 6v34a6,6 0,0 1,-6 6h-56a6,6 0,0 1,-6 -6v-34a6,6 0,0 1,6 -6z"/>
@@ -906,7 +906,7 @@ footer p { max-width: 46em; }
         <circle fill="#FF5F57" cx="29" cy="33" r="2"/><circle fill="#FEBC2E" cx="35" cy="33" r="2"/><circle fill="#28C840" cx="41" cy="33" r="2"/>
         <path fill="#9AA3B5" d="M16,80h76v6h-76z"/>
       </svg>
-      <b>Remote Mac</b>
+      <b>Sash</b>
     </a>
     <div class="seg" role="group" aria-label="Language / Язык">
       <button type="button" id="lang-ru" data-lang="ru" aria-pressed="true">RU</button>
@@ -964,7 +964,7 @@ footer p { max-width: 46em; }
           <span class="ru"><b>Это живой пример.</b> Ведите по тёмной панели внизу телефона, коснитесь, чтобы кликнуть. Клавиши ⌘ и shift фиксируются.</span>
           <span class="en"><b>This one is live.</b> Move across the dark pad at the bottom of the phone, tap to click. The ⌘ and shift keys stay latched.</span>
         </p>
-        <div class="phone" aria-label="Remote Mac in trackpad mode" role="img">
+        <div class="phone" aria-label="Sash in trackpad mode" role="img">
           <div class="screen">
             <div class="status"><span>10:24</span><span class="icons"><i></i><i></i><i></i><span class="batt"></span></span></div>
             <div class="pic" id="pic">
@@ -980,10 +980,10 @@ footer p { max-width: 46em; }
                 </div>
 
                 <div class="win term" id="win-term" data-name-ru="Терминал" data-name-en="Terminal" style="z-index:2">
-                  <div class="titlebar"><span class="tl r" data-tl="close"></span><span class="tl y" data-tl="min"></span><span class="tl g" data-tl="full"></span><span class="name">remote-mac — zsh</span></div>
+                  <div class="titlebar"><span class="tl r" data-tl="close"></span><span class="tl y" data-tl="min"></span><span class="tl g" data-tl="full"></span><span class="name">sash — zsh</span></div>
                   <div class="term-body"><span class="p">$</span> ./gradlew :app:assembleRelease
 <span class="ok">BUILD SUCCESSFUL</span> in 38s
-<span class="p">$</span> adb install -r RemoteMac-1.3.apk
+<span class="p">$</span> adb install -r Sash-1.3.apk
 Performing Streamed Install
 <span class="ok">Success</span>
 <span class="p">$</span> <span class="caret"></span></div>
@@ -1246,7 +1246,7 @@ Performing Streamed Install
           </div>
           <div class="flow-scroll">
             <div class="flow" role="img" aria-label="Phone → Tailscale, VPN or forwarded port → Sill on the Mac, with Sill TLS end to end">
-              <div class="node"><span class="k">Android</span><b>Remote Mac</b><code><span class="ru">ваш телефон</span><span class="en">your phone</span></code></div>
+              <div class="node"><span class="k">Android</span><b>Sash</b><code><span class="ru">ваш телефон</span><span class="en">your phone</span></code></div>
               <div class="link"><span><span class="ru">Tailscale, VPN или порт</span><span class="en">Tailscale, VPN or port</span> <i class="arr">→</i></span></div>
               <div class="node"><span class="k">Mac</span><b>Sill for Mac</b><code>Remote Access</code></div>
               <div class="tls"><span><span class="ru">TLS 1.3 Sill · ключи обеих сторон запинены</span><span class="en">Sill TLS 1.3 · both keys pinned</span></span></div>
@@ -1295,13 +1295,13 @@ Performing Streamed Install
         <div class="main">
           <ol class="steps">
             <li><b>Mac</b><span><span class="ru">Установите Sill for Mac с getsill.app, откройте и выдайте разрешения Screen Recording и Accessibility.</span><span class="en">Install Sill for Mac from getsill.app, open it and grant Screen Recording and Accessibility.</span></span></li>
-            <li><b><span class="ru">Телефон</span><span class="en">Phone</span></b><span><span class="ru">Установите APK, подключитесь к той же Wi‑Fi сети и откройте Remote Mac.</span><span class="en">Install the APK, join the same Wi‑Fi network and open Remote Mac.</span></span></li>
+            <li><b><span class="ru">Телефон</span><span class="en">Phone</span></b><span><span class="ru">Установите APK, подключитесь к той же Wi‑Fi сети и откройте Sash.</span><span class="en">Install the APK, join the same Wi‑Fi network and open Sash.</span></span></li>
             <li><b><span class="ru">Сопряжение</span><span class="en">Pairing</span></b><span><span class="ru">Коснитесь своего Mac. Он покажет QR-код и 12 цифр: отсканируйте код или введите цифры.</span><span class="en">Tap your Mac. It shows a QR code and 12 digits: scan the code or type the digits.</span></span></li>
             <li class="optional"><b><span class="ru">Вне дома</span><span class="en">Away from home</span></b><span><span class="ru">По желанию. Включите Remote Access в Sill, затем Tailscale или другой VPN.</span><span class="en">Optional. Turn on Remote Access in Sill, then add Tailscale or another VPN.</span></span></li>
           </ol>
           <div class="apk">
             <div class="grow">
-              <b>RemoteMac-1.3.apk</b>
+              <b>Sash-1.3.apk</b>
               <span class="ru">4 МБ · Android 10 и новее · телефоны и планшеты</span><span class="en">4 MB · Android 10 or later · phones and tablets</span>
             </div>
             <a class="btn" style="border-color: currentColor; color: inherit" href="https://getsill.app/download" target="_blank" rel="noopener"><span class="ru">Sill for Mac</span><span class="en">Sill for Mac</span> ↗</a>
@@ -1334,8 +1334,8 @@ Performing Streamed Install
 
 <footer>
   <div class="wrap">
-    <p><span class="ru">Remote Mac — независимый Android-клиент для открытого проекта Sill. Sill for Mac: <a href="https://getsill.app" target="_blank" rel="noopener">getsill.app</a>, исходный код <a href="https://github.com/Saffsanity/sill" target="_blank" rel="noopener">Saffsanity/sill</a>, лицензия Apache‑2.0.</span><span class="en">Remote Mac is an independent Android client for the open‑source Sill project. Sill for Mac: <a href="https://getsill.app" target="_blank" rel="noopener">getsill.app</a>, source at <a href="https://github.com/Saffsanity/sill" target="_blank" rel="noopener">Saffsanity/sill</a>, Apache‑2.0 license.</span></p>
-    <p>Remote Mac 1.3</p>
+    <p><span class="ru">Sash — независимый Android-клиент для открытого проекта Sill. Sill for Mac: <a href="https://getsill.app" target="_blank" rel="noopener">getsill.app</a>, исходный код <a href="https://github.com/Saffsanity/sill" target="_blank" rel="noopener">Saffsanity/sill</a>, лицензия Apache‑2.0.</span><span class="en">Sash is an independent Android client for the open‑source Sill project. Sill for Mac: <a href="https://getsill.app" target="_blank" rel="noopener">getsill.app</a>, source at <a href="https://github.com/Saffsanity/sill" target="_blank" rel="noopener">Saffsanity/sill</a>, Apache‑2.0 license.</span></p>
+    <p><span class="ru">Sash значит «створка»: подвижная часть окна, которая стоит на подоконнике, по-английски sill. Версия&nbsp;1.3</span><span class="en">A sash is the part of a window that opens, resting on the sill. Version&nbsp;1.3</span></p>
   </div>
 </footer>
 
