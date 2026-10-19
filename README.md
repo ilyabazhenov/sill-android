@@ -1,65 +1,72 @@
-# Remote Mac: Android-клиент для Sill
+# Remote Mac: an Android client for Sill
 
-Окна Mac и весь его рабочий стол на телефоне или планшете с Android. Управление касаниями, клавиатурой, мышью и стилусом.
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+![Android 10+](https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
 
-Это неофициальный Android-клиент для [Sill](https://getsill.app) (открытый проект, Apache-2.0, [Saffsanity/sill](https://github.com/Saffsanity/sill)). На Mac работает стандартное приложение **Sill for Mac** без изменений. Это приложение говорит на его протоколе, поэтому iPhone/iPad с официальным Sill и Android-устройства подключаются к одному и тому же Mac.
+**English** · [Русский](README.ru.md)
 
-## Что умеет
+Your Mac's windows and its whole desktop on an Android phone or tablet, driven by touch, keyboard, mouse and stylus.
 
-- **Поиск Mac в локальной сети** (Bonjour `_sill._tcp` через NSD).
-- **Сопряжение** тремя способами:
-  - касание «Not paired», затем Mac показывает код, его надо ввести;
-  - сканирование QR-кода камерой (или через системную камеру, ссылка `sill://pair`);
-  - адрес плюс код для сопряжения издалека.
-- **Шифрование**: TLS 1.3, взаимный пиннинг ключей P-256. Ключ устройства хранится в Android Keystore.
-- **Видео**: поток HEVC до 120 к/с, аппаратный декодер MediaCodec в режиме низкой задержки.
-- **Окна**:
-  - лента живых миниатюр;
-  - долгое нажатие открывает «светофор»: закрыть, свернуть, полный экран;
-  - кнопка «Рабочий стол»;
-  - список всех приложений Mac с поиском и запуском.
-- **Ввод напрямую**:
-  - тап — клик, долгое нажатие — правый клик;
-  - долгое нажатие и движение — перетаскивание;
-  - прокрутка одним или двумя пальцами с инерцией;
-  - мышь, тачпад и стилус работают как мышь Mac, включая колесо и наведение.
-- **Режим трекпада** (телефон вертикально): картинка сверху, ряд клавиш, трекпад снизу.
-  - тап — клик, тап двумя пальцами — правый клик;
-  - прокрутка двумя пальцами;
-  - долгое нажатие и движение — перетаскивание.
-- **Жесты тремя пальцами**: Mission Control, App Exposé, переключение Spaces, Apps, Show Desktop.
-- **Клавиатура**:
-  - экранная: текст, Delete, Return;
-  - ряд esc/tab/ctrl/opt/cmd/shift со стрелками, модификаторы фиксируются, чтобы делать сочетания вроде ⌘C;
-  - аппаратная клавиатура передаёт каждую клавишу как есть (⌘ — клавиша Meta/Win).
-- **Aa**: масштаб окна Mac под экран устройства (0.5×–1.5×).
-- **Меню приложения Mac**: строка меню текущего приложения, подменю подгружаются при открытии, пункты нажимаются на Mac.
-- **Указатель Mac**, когда мышью двигают на самом Mac, с формой курсора.
-- **Буфер обмена в обе стороны**:
-  - скопированное на Mac попадает в буфер Android;
-  - «Paste on Mac» отправляет текст с телефона.
-- **Настройки Mac с телефона**: качество (Low…Extreme), Retina/Standard, 60/120 к/с, приоритет скорости кодирования, виртуальный дисплей.
-- **Удалённый доступ**:
-  - через свой relay на VPS, без Tailscale: на Mac рядом с Sill работает маленький helper ([relay/README.md](relay/README.md));
-  - через VPN (Tailscale и т.п.) или проброшенный порт;
-  - адреса Mac приходят в подписанном сообщении; приложение пробует их параллельно, с шагом в 1 с.
-- **Автопереподключение**: после обрыва, выхода Sill или ухода приложения в фон.
+This is an **unofficial** Android client for [Sill](https://getsill.app) (open source, Apache-2.0, [Saffsanity/sill](https://github.com/Saffsanity/sill)). The Mac runs the stock **Sill for Mac** app, unchanged. This app speaks Sill's protocol, so iPhones and iPads with the official Sill app and Android devices connect to the same Mac.
 
-## Чего нет (только для Apple)
+## Features
 
-- Сопряжения по USB-кабелю: Mac распознаёт только кабельный интерфейс iPhone/iPad.
-- Direct Wireless (AWDL): по Wi-Fi нужна общая сеть или VPN.
+- **Finds Macs on the local network** (Bonjour `_sill._tcp` via NSD).
+- **Pairing**, three ways:
+  - tap "Not paired", then enter the code the Mac shows;
+  - scan the QR code with the in-app or system camera (`sill://pair` link);
+  - address plus code, for pairing from afar.
+- **Encryption**: TLS 1.3 with mutual pinning of P-256 keys. The device key lives in the Android Keystore.
+- **Video**: HEVC stream up to 120 fps, hardware MediaCodec decoder in low-latency mode.
+- **Windows**:
+  - a strip of live thumbnails;
+  - long press for the traffic lights: close, minimize, full screen;
+  - a Desktop button;
+  - every app on the Mac, with search and launch.
+- **Direct input**:
+  - tap to click, long press to right-click;
+  - long press and move to drag;
+  - one- or two-finger scrolling with momentum;
+  - mouse, touchpad and stylus act as the Mac's mouse, wheel and hover included.
+- **Trackpad mode** (phone upright): picture on top, key row, trackpad below.
+  - tap to click, two-finger tap to right-click;
+  - two-finger scrolling;
+  - long press and move to drag.
+- **Three-finger gestures**: Mission Control, App Exposé, switching Spaces, Apps, Show Desktop.
+- **Keyboard**:
+  - on-screen: text, Delete, Return;
+  - an esc/tab/ctrl/opt/cmd/shift row with arrows; modifiers latch for shortcuts like ⌘C;
+  - a hardware keyboard sends every key as is (⌘ is the Meta/Win key).
+- **Aa**: scales the Mac window to the device screen (0.5×–1.5×).
+- **The Mac app's menus**: the frontmost app's menu bar, submenus load on open, items are pressed on the Mac.
+- **The Mac's pointer** with its cursor shape when someone moves the mouse on the Mac itself.
+- **Two-way clipboard**:
+  - what you copy on the Mac lands on the Android clipboard;
+  - "Paste on Mac" sends text from the phone.
+- **Mac settings from the phone**: quality (Low…Extreme), Retina/Standard, 60/120 fps, encoder speed priority, virtual display.
+- **Away from home**:
+  - through your own relay on a VPS, no Tailscale needed: a small helper runs next to Sill on the Mac ([relay/README.md](relay/README.md));
+  - through a VPN (Tailscale and the like) or a forwarded port;
+  - the Mac's addresses arrive in a signed message; the app tries them in parallel, 1 s apart.
+- **App lock**: fingerprint, face or PIN on open and after a minute in the background.
+- **Auto-reconnect** after a dropped connection, Sill quitting, or the app going to the background.
 
-## Как пользоваться
+## Not supported (Apple devices only)
 
-1. Установите **Sill for Mac** с [getsill.app](https://getsill.app/download) и откройте его. Выдайте разрешения Screen Recording и Accessibility.
-2. Установите APK на Android, подключитесь к той же Wi-Fi сети и откройте приложение.
-3. Нажмите на свой Mac. В первый раз Mac покажет QR-код и 12-значный код. Отсканируйте QR или введите цифры.
-4. Вне дома: включите Remote Access в настройках Sill на Mac. Дальше одно из двух: Tailscale на обоих устройствах или свой relay ([relay/README.md](relay/README.md)). Mac появится в разделе «Away from home».
+- Pairing over a USB cable: the Mac only recognizes an iPhone's or iPad's cable interface.
+- Direct Wireless (AWDL): Wi-Fi needs a shared network or a VPN.
 
-## Сборка
+## Getting started
 
-Нужны JDK 17+ и Android SDK (compileSdk 36).
+1. Install **Sill for Mac** from [getsill.app](https://getsill.app/download) and open it. Grant Screen Recording and Accessibility.
+2. Install the APK on Android, join the same Wi-Fi network and open the app.
+3. Tap your Mac. The first time, the Mac shows a QR code and a 12-digit code. Scan the QR or type the digits.
+4. Away from home: turn on Remote Access in Sill's settings on the Mac. Then either install Tailscale on both devices or run your own relay ([relay/README.md](relay/README.md)). The Mac shows up under "Away from home".
+
+## Building
+
+Needs JDK 17+ and the Android SDK (compileSdk 36). The app runs on Android 10 (API 29) and later.
 
 ```bash
 ./gradlew :app:assembleDebug
@@ -69,33 +76,34 @@
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Release-сборка (`./gradlew :app:assembleRelease`) подписана debug-ключом, только для проверки. Для публикации подпишите своим ключом.
+The release build (`./gradlew :app:assembleRelease`) is signed with the debug key, for testing only. Sign it with your own key to distribute it.
 
-## Устройство проекта
+## Project layout
 
-- `protocol/`: модуль на чистом Kotlin/JVM, без Android.
-  - формат сообщений Sill (`Wire.kt`, `Messages.kt`);
-  - криптография сопряжения, сверенная байт в байт с эталонными векторами из Swift-кода Sill (`Pairing.kt`, тесты в `GoldenVectorsTest`);
-  - самоподписанный сертификат устройства (`Identity.kt`);
-  - TLS 1.3 с ALPN и пиннингом (`Transport.kt`);
-  - клиенты сопряжения и сессии (`PairingClient.kt`, `Session.kt`);
-  - парсер HEVC SPS.
-- `protocol/.../cli/TestClient.kt`: консольный клиент. Говорит с настоящим хостом Sill так же, как приложение.
-- `app/`: Android-приложение (Jetpack Compose).
-  - `Controller`: подключение, сопряжение, сессия, переподключение, каталог;
-  - `VideoDecoder`: MediaCodec, перевод в Annex-B;
+- `protocol/`: a pure Kotlin/JVM module with no Android dependencies.
+  - Sill's message format (`Wire.kt`, `Messages.kt`);
+  - pairing cryptography, checked byte for byte against golden vectors from Sill's Swift code (`Pairing.kt`, tests in `GoldenVectorsTest`);
+  - the device's self-signed certificate (`Identity.kt`);
+  - TLS 1.3 with ALPN and pinning (`Transport.kt`);
+  - pairing and session clients (`PairingClient.kt`, `Session.kt`);
+  - an HEVC SPS parser.
+- `protocol/.../cli/TestClient.kt`: a command-line client that talks to a real Sill host the same way the app does.
+- `app/`: the Android app (Jetpack Compose).
+  - `Controller`: connecting, pairing, the session, reconnects, the catalog;
+  - `VideoDecoder`: MediaCodec, conversion to Annex-B;
   - `Discovery`: NSD;
-  - `InputLayer`: касания, трекпад, жесты;
-  - `HidKeys`: клавиши в USB HID;
-  - экраны в `ui/`.
-- `relay/`: relay на Go (`rmrelay` для VPS, `rmhelper` для Mac), устройство в `docs/relay.md`.
-- `docs/sill-protocol-notes.md`: заметки о протоколе по коду iOS-клиента и хоста.
-- `tools/vectors/main.swift`: генератор эталонных векторов из Swift-кода Sill.
-- `reference/sill`: клон Sill для справки, в git не входит.
+  - `InputLayer`: touches, trackpad, gestures;
+  - `HidKeys`: keys to USB HID;
+  - screens in `ui/`.
+- `relay/`: the relay in Go (`rmrelay` for the VPS, `rmhelper` for the Mac); design in [docs/relay.md](docs/relay.md).
+- `docs/sill-protocol-notes.md`: protocol notes taken from the iOS client and host code.
+- `tools/vectors/main.swift`: generates the golden vectors from Sill's Swift code.
+- `site/`: the project's landing page.
+- `reference/sill`: a clone of Sill for reference, not checked in.
 
-## Проверка без телефона
+## Testing without a phone
 
-Хост Sill умеет тестовый режим: тестовая картинка вместо экрана, ввод никуда не отправляется.
+The Sill host has a test mode: a synthetic picture instead of the screen, and input goes nowhere.
 
 ```bash
 git clone https://github.com/Saffsanity/sill reference/sill
@@ -109,7 +117,7 @@ git clone https://github.com/Saffsanity/sill reference/sill
 SILL_TEST_LOOPBACK=1 SILL_TEST_SOFTWARE_ENCODER=1 SILL_TEST_NO_ROUTER=1 SILL_TEST_REMOTE_DIR=/tmp/sillid reference/sill/.build/release/SillHost --synthetic --pairing
 ```
 
-Хост напечатает код и ссылку `sill://pair…`. Порт можно узнать через `lsof -nP -iTCP -sTCP:LISTEN`.
+The host prints a code and a `sill://pair…` link. Find its port with `lsof -nP -iTCP -sTCP:LISTEN`.
 
 ```bash
 ./gradlew :protocol:installDist
@@ -119,8 +127,8 @@ SILL_TEST_LOOPBACK=1 SILL_TEST_SOFTWARE_ENCODER=1 SILL_TEST_NO_ROUTER=1 SILL_TES
 protocol/build/install/protocol/bin/protocol 127.0.0.1 PORT --link 'sill://pair?…'
 ```
 
-Из эмулятора Android хост доступен по адресу `10.0.2.2:PORT`: «Add a Mac…» → адрес → код.
+From the Android emulator the host is at `10.0.2.2:PORT`: "Add a Mac…" → address → code.
 
-## Лицензия
+## License
 
-[GPL-3.0](LICENSE). Sill — отдельный проект своих авторов под Apache-2.0; это приложение с ними не связано.
+[GPL-3.0](LICENSE). Sill is a separate project by its own authors under Apache-2.0; this app is not affiliated with them.
