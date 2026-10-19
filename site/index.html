@@ -3,12 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sash</title>
-<meta name="description" content="Sash: окна и рабочий стол Mac на Android, клиент для Sill. Your Mac’s windows on Android, a client for Sill.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<title>Sash — окна вашего Mac на Android</title>
+<meta name="description" content="Sash: окна и рабочий стол Mac на Android, бесплатный клиент для Sill с открытым кодом. Your Mac’s windows on Android, a free open-source client for Sill.">
+<link rel="canonical" href="https://usesash.app/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#E3E9F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1017" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Sash">
+<meta property="og:url" content="https://usesash.app/">
+<meta property="og:title" content="Sash — окна вашего Mac на Android">
+<meta property="og:description" content="Бесплатный клиент для Sill с открытым кодом. Телефон, складной или планшет показывает окна Mac и управляет ими.">
+<meta property="og:image" content="https://usesash.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sash: окна вашего Mac на Android">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="fonts/golos-text-400-700-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/golos-text-400-700-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* Fonts are served from this site, so a visit makes no third-party requests. Golos Text and IBM Plex Mono, SIL OFL 1.1 (fonts/OFL-*.txt). */
+@font-face { font-family: "Golos Text"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/golos-text-400-700-cyrillic.woff2) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Golos Text"; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/golos-text-400-700-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-mono-400-cyrillic.woff2) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-mono-400-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/ibm-plex-mono-500-cyrillic.woff2) format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/ibm-plex-mono-500-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 /* Layout: every section stands on a "sill", a thick ledge like the one under the window in the app icon.
    Hero: copy on the left, a live phone in trackpad mode standing on the first ledge. */
 :root {
@@ -112,7 +136,7 @@ a { color: var(--signal); text-underline-offset: .2em; }
 h1, h2, h3 { text-wrap: balance; margin: 0; }
 p { margin: 0; text-wrap: pretty; }
 @media (max-width: 600px) {
-  p, dd, figcaption, .feat span, .steps span, .limits span, .checks span, .spec span { hyphens: auto; -webkit-hyphens: auto; hyphenate-limit-chars: 8 4 3; }
+  p, dd, figcaption, .feat span, .steps span, .limits span, .checks span, .spec span, .trust div > span { hyphens: auto; -webkit-hyphens: auto; hyphenate-limit-chars: 8 4 3; }
 }
 h1, h2, .lede { hyphens: manual; }
 
@@ -172,9 +196,9 @@ h1, h2, .lede { hyphens: manual; }
 }
 .hero-copy { display: flex; flex-direction: column; gap: 24px; padding-bottom: clamp(24px, 6vw, 96px); min-width: 0; }
 .eyebrow {
-  font: 500 .75rem/1.4 var(--f-mono);
+  font: 600 .75rem/1.4 var(--f-body);
   text-transform: uppercase;
-  letter-spacing: .12em;
+  letter-spacing: .09em;
   color: var(--muted);
 }
 .hero h1 {
@@ -228,7 +252,7 @@ h1, h2, .lede { hyphens: manual; }
 .btn:active { transform: translateY(0); }
 .btn svg { width: 18px; height: 18px; }
 .specline {
-  font: 400 .8125rem/1.6 var(--f-mono);
+  font: 400 .875rem/1.6 var(--f-body);
   color: var(--muted);
   display: flex;
   flex-wrap: wrap;
@@ -566,7 +590,7 @@ section.band { padding-block: clamp(56px, 8vw, 104px) 0; }
 .pose[data-state="phone-h"] .pose-cap[data-for="phone-h"],
 .pose[data-state="fold-v"] .pose-cap[data-for="fold-v"],
 .pose[data-state="fold-h"] .pose-cap[data-for="fold-h"] { display: flex; }
-.pose-cap b { font: 500 .75rem/1.4 var(--f-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--signal); }
+.pose-cap b { font: 600 .75rem/1.4 var(--f-body); text-transform: uppercase; letter-spacing: .09em; color: var(--signal); }
 .pose-cap p { font-size: var(--step-1); line-height: 1.5; }
 .rig-wrap { height: 400px; position: relative; }
 .rig { position: absolute; left: 50%; top: 0; width: 400px; height: 400px; margin-left: -200px; transform-origin: 50% 0; display: grid; place-items: center; }
@@ -858,6 +882,15 @@ section.band { padding-block: clamp(56px, 8vw, 104px) 0; }
 .apk .btn span { font: inherit; opacity: 1; }
 .apk .btn.get { background: var(--sky); color: var(--ink); border-color: var(--sky); }
 
+.trust { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 32px; margin-top: 28px; }
+.trust div { display: flex; flex-direction: column; gap: 6px; padding-top: 14px; border-top: 1.5px solid var(--line); min-width: 0; }
+.trust b { font-weight: 600; }
+.trust div > span { color: var(--muted); font-size: .9375rem; }
+.trust code { font: 400 .8125rem/1.5 var(--f-mono); }
+.trust div > span code { white-space: nowrap; }
+.trust .fp { color: var(--ink); word-break: break-all; margin-top: 2px; }
+.trust .more { color: var(--signal); font-weight: 600; font-size: .9375rem; text-decoration: none; margin-top: 2px; }
+.trust .more:hover { text-decoration: underline; }
 .limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 40px; }
 .limits div { display: flex; flex-direction: column; gap: 4px; padding-top: 14px; border-top: 1.5px solid var(--ink); }
 .limits b { font-weight: 600; }
@@ -874,9 +907,10 @@ footer p { max-width: 46em; }
   .band-head, .band-body { grid-template-columns: minmax(0, 1fr); }
   .gest-grid { grid-template-columns: minmax(0, 1fr); }
   .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trust { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 600px) {
-  .feats, .checks, .limits, .steps { grid-template-columns: minmax(0, 1fr); }
+  .feats, .checks, .limits, .steps, .trust { grid-template-columns: minmax(0, 1fr); }
   .btn { padding: 14px 16px; gap: 8px; }
   .cta { gap: 10px; }
   .flow { grid-template-columns: minmax(0, 1fr); min-width: 0; }
@@ -932,7 +966,7 @@ footer p { max-width: 46em; }
   <section class="hero">
     <div class="wrap">
       <div class="hero-copy">
-        <p class="eyebrow"><span class="ru">Android-клиент для Sill · версия&nbsp;1.3</span><span class="en">An Android client for Sill · version&nbsp;1.3</span></p>
+        <p class="eyebrow"><span class="ru">Android-клиент для Sill · версия&nbsp;<span data-release="version">1.3</span></span><span class="en">An Android client for Sill · version&nbsp;<span data-release="version">1.3</span></span></p>
         <h1>
           <span class="ru"><span class="window-word">Окна</span> вашего Mac на&nbsp;Android</span>
           <span class="en">Your Mac’s <span class="window-word">windows</span> on&nbsp;Android</span>
@@ -953,7 +987,8 @@ footer p { max-width: 46em; }
           <a class="btn" href="#hands"><span class="ru">Что умеет</span><span class="en">What it does</span></a>
         </div>
         <p class="specline">
-          <span><span class="ru">APK · 4&nbsp;МБ</span><span class="en">APK · 4&nbsp;MB</span></span>
+          <span><span class="ru">Бесплатно, открытый код</span><span class="en">Free and open source</span></span>
+          <span><span class="ru">APK · <span data-release="size-ru">4,3&nbsp;МБ</span></span><span class="en">APK · <span data-release="size-en">4.3&nbsp;MB</span></span></span>
           <span class="ru">Android 10 и новее</span><span class="en">Android 10 or later</span>
           <span><span class="ru">HEVC · 120&nbsp;к/с</span><span class="en">HEVC · 120&nbsp;fps</span></span>
           <span>TLS 1.3</span>
@@ -984,7 +1019,7 @@ footer p { max-width: 46em; }
                   <div class="titlebar"><span class="tl r" data-tl="close"></span><span class="tl y" data-tl="min"></span><span class="tl g" data-tl="full"></span><span class="name">sash — zsh</span></div>
                   <div class="term-body"><span class="p">$</span> ./gradlew :app:assembleRelease
 <span class="ok">BUILD SUCCESSFUL</span> in 38s
-<span class="p">$</span> adb install -r Sash-1.3.apk
+<span class="p">$</span> adb install -r <span data-release="name">RemoteMac-1.3.apk</span>
 Performing Streamed Install
 <span class="ok">Success</span>
 <span class="p">$</span> <span class="caret"></span></div>
@@ -994,7 +1029,7 @@ Performing Streamed Install
                   <div class="titlebar"><span class="tl r" data-tl="close"></span><span class="tl y" data-tl="min"></span><span class="tl g" data-tl="full"></span><span class="name"><span class="ru">Заметки</span><span class="en">Notes</span></span></div>
                   <div class="notes-body">
                     <h4><span class="ru">Перед выходом</span><span class="en">Before I leave</span></h4>
-                    <div class="todo done"><span class="box"></span><span class="ru">Собрать версию 1.3</span><span class="en">Build version 1.3</span></div>
+                    <div class="todo done"><span class="box"></span><span class="ru">Собрать версию <span data-release="version">1.3</span></span><span class="en">Build version <span data-release="version">1.3</span></span></div>
                     <div class="todo"><span class="box"></span><span class="ru">Ответить на письмо</span><span class="en">Reply to the email</span></div>
                     <div class="todo" id="todo-milk"><span class="box"></span><span class="ru">Купить молоко</span><span class="en">Buy milk</span></div>
                   </div>
@@ -1302,11 +1337,27 @@ Performing Streamed Install
           </ol>
           <div class="apk">
             <div class="grow">
-              <b>Sash-1.3.apk</b>
-              <span class="ru">4 МБ · Android 10 и новее · телефоны и планшеты</span><span class="en">4 MB · Android 10 or later · phones and tablets</span>
+              <b data-release="name">RemoteMac-1.3.apk</b>
+              <span class="ru"><span data-release="size-ru">4,3 МБ</span> · Android 10 и новее · телефоны и планшеты</span><span class="en"><span data-release="size-en">4.3 MB</span> · Android 10 or later · phones and tablets</span>
             </div>
-            <a class="btn get" href="https://github.com/ilyabazhenov/sill-android/releases/latest"><span class="ru">Скачать APK</span><span class="en">Download APK</span></a>
+            <a class="btn get" data-release="href" href="https://github.com/ilyabazhenov/sill-android/releases/latest"><span class="ru">Скачать APK</span><span class="en">Download APK</span></a>
             <a class="btn" style="border-color: currentColor; color: inherit" href="https://getsill.app/download" target="_blank" rel="noopener"><span class="ru">Sill for Mac</span><span class="en">Sill for Mac</span> ↗</a>
+          </div>
+          <div class="trust">
+            <div>
+              <b><span class="ru">Установка</span><span class="en">Installing</span></b>
+              <span class="ru">Откройте скачанный APK. Android попросит разрешить установку для браузера или файлового менеджера: включите «Разрешить из этого источника». Если Play Protect предупредит о незнакомом приложении, нажмите «Подробнее», затем «Всё равно установить».</span><span class="en">Open the downloaded APK. Android asks to allow installs from your browser or file manager: turn on “Allow from this source”. If Play Protect warns about an unknown app, tap “More details”, then “Install anyway”.</span>
+            </div>
+            <div>
+              <b><span class="ru">Обновления</span><span class="en">Updates</span></b>
+              <span class="ru">Obtainium сам следит за релизами на GitHub и ставит новые версии поверх старых.</span><span class="en">Obtainium watches the GitHub releases and installs new versions over the old one.</span>
+              <a class="more" href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/ilyabazhenov/sill-android" target="_blank" rel="noopener"><span class="ru">Добавить в Obtainium</span><span class="en">Add to Obtainium</span> ↗</a>
+            </div>
+            <div>
+              <b><span class="ru">Подпись</span><span class="en">Signature</span></b>
+              <span class="ru">Все релизы подписаны одним ключом. SHA-256 сертификата, как его показывает <code>apksigner verify --print-certs</code>:</span><span class="en">Every release is signed with the same key. The certificate’s SHA-256, as <code>apksigner verify --print-certs</code> prints it:</span>
+              <code class="fp">b7b9a42f2e257922d6cecd9e04078d63e453729a5b280275dc55f82db4ea072e</code>
+            </div>
           </div>
         </div>
       </div>
@@ -1331,13 +1382,35 @@ Performing Streamed Install
         </div>
       </div>
     </div>
+    <div class="wrap"><div class="sill"></div></div>
+  </section>
+
+  <!-- Questions -->
+  <section class="band" id="faq">
+    <div class="wrap">
+      <div class="band-head">
+        <p class="eyebrow"><span class="ru">Вопросы</span><span class="en">Questions</span></p>
+        <h2><span class="ru">Коротко о главном</span><span class="en">The short answers</span></h2>
+      </div>
+      <div class="band-body">
+        <p class="side"><span class="ru">Чего ещё не хватает, спросите в&nbsp;<a href="https://github.com/ilyabazhenov/sill-android/issues" target="_blank" rel="noopener">issues на GitHub</a>.</span><span class="en">Anything else, ask in the <a href="https://github.com/ilyabazhenov/sill-android/issues" target="_blank" rel="noopener">GitHub issues</a>.</span></p>
+        <div class="main">
+          <div class="limits faq">
+            <div><b><span class="ru">Сколько это стоит?</span><span class="en">What does it cost?</span></b><span><span class="ru">Ничего. Sash бесплатный, исходный код открыт под GPL‑3.0. Sill for Mac тоже бесплатный.</span><span class="en">Nothing. Sash is free, with its source open under GPL‑3.0. Sill for Mac is free too.</span></span></div>
+            <div><b><span class="ru">Какой нужен Mac?</span><span class="en">Which Mac do I need?</span></b><span><span class="ru">Mac на Apple silicon с macOS 14 или новее. На macOS 15 и новее Sill попросит ещё доступ к локальной сети.</span><span class="en">A Mac with Apple silicon on macOS 14 or later. On macOS 15 or later, Sill also asks for Local Network access.</span></span></div>
+            <div><b><span class="ru">Нужен ли аккаунт?</span><span class="en">Do I need an account?</span></b><span><span class="ru">Нет. Телефон и Mac сопрягаются напрямую, без регистрации и облачного сервера.</span><span class="en">No. The phone and the Mac pair directly, with no sign‑up and no cloud server.</span></span></div>
+            <div><b><span class="ru">Что приложение знает обо мне?</span><span class="en">What does the app know about me?</span></b><span><span class="ru">Ничего не отправляет. В Sash нет аналитики и рекламы, оно соединяется только с вашим Mac. Сайт тоже ничего не грузит со сторонних серверов.</span><span class="en">It sends nothing anywhere. Sash has no analytics and no ads and connects only to your Mac. This site loads nothing from third‑party servers either.</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 
 <footer>
   <div class="wrap">
     <p><span class="ru">Sash — независимый Android-клиент для открытого проекта Sill. Sill for Mac: <a href="https://getsill.app" target="_blank" rel="noopener">getsill.app</a>, исходный код <a href="https://github.com/Saffsanity/sill" target="_blank" rel="noopener">Saffsanity/sill</a>, лицензия Apache‑2.0. Исходный код Sash: <a href="https://github.com/ilyabazhenov/sill-android" target="_blank" rel="noopener">ilyabazhenov/sill-android</a>, GPL‑3.0.</span><span class="en">Sash is an independent Android client for the open‑source Sill project. Sill for Mac: <a href="https://getsill.app" target="_blank" rel="noopener">getsill.app</a>, source at <a href="https://github.com/Saffsanity/sill" target="_blank" rel="noopener">Saffsanity/sill</a>, Apache‑2.0 license. Sash source: <a href="https://github.com/ilyabazhenov/sill-android" target="_blank" rel="noopener">ilyabazhenov/sill-android</a>, GPL‑3.0.</span></p>
-    <p><span class="ru">Sash значит «створка»: подвижная часть окна, которая стоит на подоконнике, по-английски sill. Версия&nbsp;1.3</span><span class="en">A sash is the part of a window that opens, resting on the sill. Version&nbsp;1.3</span></p>
+    <p><span class="ru">Sash значит «створка»: подвижная часть окна, которая стоит на подоконнике, по-английски sill. Версия&nbsp;<span data-release="version">1.3</span></span><span class="en">A sash is the part of a window that opens, resting on the sill. Version&nbsp;<span data-release="version">1.3</span></span></p>
   </div>
 </footer>
 
@@ -1377,6 +1450,7 @@ Performing Streamed Install
   function setLang(l) {
     root.setAttribute('data-lang', l);
     root.setAttribute('lang', l);
+    document.title = l === 'en' ? 'Sash — your Mac’s windows on Android' : 'Sash — окна вашего Mac на Android';
     langBtns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === l)); });
     updateMenuApp();
   }

@@ -1,29 +1,56 @@
-# Publishes site/ to GitHub Pages on every push to main that changes it.
+# Publishes site/ to GitHub Pages on every push to main that changes it, and again
+# whenever a release is published, so the page shows the latest version and APK.
 name: Pages
 
 on:
   push:
     branches: [main]
-    paths: [site/**, .github/workflows/pages.yml]
+    paths: [site/**, tools/stamp-release.py, .github/workflows/pages.yml]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  # A release runs on its tag, and only main may deploy to github-pages,
+  # so a release just starts this workflow again on main.
+  redeploy:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  deploy:
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Stamp the latest release into the page
+        run: |
+          if gh release view --repo "$GITHUB_REPOSITORY" --json tagName,assets > "$RUNNER_TEMP/release.json"; then
+            python3 tools/stamp-release.py site/index.html "$RUNNER_TEMP/release.json" || true
+          else
+            echo "no release yet; page left as is"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
