@@ -5,7 +5,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
 [![Latest release](https://img.shields.io/github/v/release/ilyabazhenov/sill-android)](https://github.com/ilyabazhenov/sill-android/releases/latest)
 
-**English** · [Русский](README.ru.md)
+**English** · [Русский](README.ru.md) · Website: [usesash.app](https://usesash.app)
 
 Your Mac's windows and its whole desktop on an Android phone or tablet, driven by touch, keyboard, mouse and stylus.
 

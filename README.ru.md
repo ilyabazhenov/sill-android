@@ -1,6 +1,6 @@
 # Sash: Android-клиент для Sill
 
-[English](README.md) · **Русский**
+[English](README.md) · **Русский** · Сайт: [usesash.app](https://usesash.app)
 
 Окна Mac и весь его рабочий стол на телефоне или планшете с Android. Управление касаниями, клавиатурой, мышью и стилусом.
 
