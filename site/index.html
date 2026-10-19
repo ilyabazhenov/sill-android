@@ -7,7 +7,7 @@
 <meta name="description" content="Sash: окна и рабочий стол Mac на Android, клиент для Sill. Your Mac’s windows on Android, a client for Sill.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: every section stands on a "sill", a thick ledge like the one under the window in the app icon.
    Hero: copy on the left, a live phone in trackpad mode standing on the first ledge. */
@@ -48,7 +48,6 @@
   --mac-text: #1D2330;
   --mac-dim: #6A7385;
 
-  --f-display: "Unbounded", "Golos Text", system-ui, sans-serif;
   --f-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 
@@ -56,7 +55,7 @@
   --step-0: 1rem;
   --step-1: 1.1875rem;
   --step-2: clamp(1.4375rem, 1.05rem + 1.5vw, 2.0625rem);
-  --step-3: clamp(2.25rem, 1.4rem + 3.8vw, 4.25rem);
+  --step-3: clamp(2.625rem, 1.7rem + 4.2vw, 4.75rem);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -137,7 +136,7 @@ h1, h2, .lede { hyphens: manual; }
 .top .wrap { display: flex; align-items: center; gap: 12px; padding-block: 10px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); margin-right: auto; }
 .brand svg { width: 30px; height: 30px; border-radius: 8px; flex: none; }
-.brand b { font-family: var(--f-display); font-weight: 500; font-size: .95rem; letter-spacing: .01em; }
+.brand b { font-weight: 600; font-size: 1rem; letter-spacing: -.005em; }
 .seg {
   display: inline-flex;
   padding: 3px;
@@ -179,16 +178,17 @@ h1, h2, .lede { hyphens: manual; }
   color: var(--muted);
 }
 .hero h1 {
-  font-family: var(--f-display);
   font-weight: 700;
   font-size: var(--step-3);
-  line-height: .98;
-  letter-spacing: -.03em;
+  line-height: 1.08;
+  letter-spacing: -.035em;
 }
 .hero h1 .window-word {
   display: inline-block;
   position: relative;
-  padding: 0 .14em;
+  /* a chip shorter than the line, so the traffic lights clear the line above */
+  line-height: .9;
+  padding: .04em .14em .08em;
   margin: 0 -.04em;
   color: var(--signal-ink);
   background: var(--signal);
@@ -528,11 +528,10 @@ section.band { padding-block: clamp(56px, 8vw, 104px) 0; }
 .band-head { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 16px 40px; margin-bottom: clamp(28px, 4vw, 48px); align-items: baseline; }
 .band-head .eyebrow { padding-top: .5em; }
 .band h2 {
-  font-family: var(--f-display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: var(--step-2);
-  line-height: 1.12;
-  letter-spacing: -.02em;
+  line-height: 1.15;
+  letter-spacing: -.015em;
   max-width: 19em;
 }
 .band-body { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 16px 40px; padding-bottom: clamp(40px, 6vw, 72px); }
@@ -552,7 +551,7 @@ section.band { padding-block: clamp(56px, 8vw, 104px) 0; }
   min-width: 9.5rem;
   flex: 1 1 9.5rem;
 }
-.spec b { font-family: var(--f-display); font-weight: 500; font-size: 1.375rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.spec b { font-weight: 600; font-size: 1.375rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .spec span { font-size: var(--step--1); color: var(--muted); }
 
 /* screens: one device, four postures, turned and unfolded in place */
@@ -839,7 +838,7 @@ section.band { padding-block: clamp(56px, 8vw, 104px) 0; }
   gap: 8px;
   min-width: 0;
 }
-.steps li::before { content: counter(step); font: 700 1.75rem/1 var(--f-display); color: var(--signal); }
+.steps li::before { content: counter(step); font: 600 1.75rem/1 var(--f-body); color: var(--signal); }
 .steps li.optional { background: transparent; border-style: dashed; }
 .steps b { font-weight: 600; font-size: 1.0625rem; }
 .steps span { color: var(--muted); font-size: .9375rem; }
