@@ -1,15 +1,15 @@
-# Relay: Mac вне дома без Tailscale
+# Relay: reaching your Mac away from home without Tailscale
 
-Как устроено и почему так: [docs/relay.md](../docs/relay.md). Здесь две программы:
+How it works and why: [docs/relay.md](../docs/relay.md). There are two programs here:
 
-- `rmrelay`: сервер на VPS с белым IP. Ничего не хранит и не может прочитать трафик.
-- `rmhelper`: на Mac рядом с Sill. Держит соединение с relay и передаёт подключения телефона в Sill.
+- `rmrelay`: a server on a VPS with a public IP. It stores nothing and cannot read the traffic.
+- `rmhelper`: runs on the Mac next to Sill. It keeps a connection to the relay open and hands the phone's connections to Sill.
 
-Нужен Go 1.22+.
+Needs Go 1.22+.
 
-## 1. Сервер
+## 1. Server
 
-Подойдёт любой VPS с Linux. Лучше ближе к вам: задержка картинки = пинг до VPS туда и обратно.
+Any Linux VPS works. Pick one close to you: the picture's latency grows by the round trip to the VPS.
 
 ```bash
 GOOS=linux GOARCH=amd64 go build -o rmrelay ./cmd/rmrelay
@@ -19,17 +19,17 @@ GOOS=linux GOARCH=amd64 go build -o rmrelay ./cmd/rmrelay
 scp rmrelay deploy/rmrelay.service root@VPS:/tmp/
 ```
 
-На сервере:
+On the server:
 
 ```bash
 install -m 755 /tmp/rmrelay /usr/local/bin/ && install -m 644 /tmp/rmrelay.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now rmrelay
 ```
 
-Откройте TCP 7456 в файрволе (например, `ufw allow 7456/tcp`). Логи: `journalctl -u rmrelay -f`.
+Open TCP 7456 in the firewall (for example `ufw allow 7456/tcp`). Logs: `journalctl -u rmrelay -f`.
 
 ## 2. Mac
 
-В Sill: Settings → Remote Access → включить. «Allow connections from the internet» не нужен.
+In Sill: Settings → Remote Access → on. "Allow connections from the internet" is not needed.
 
 ```bash
 go build -o rmhelper ./cmd/rmhelper
@@ -39,58 +39,58 @@ go build -o rmhelper ./cmd/rmhelper
 ./rmhelper install -relay VPS:7456
 ```
 
-Helper запустится сейчас и при каждом входе в систему (LaunchAgent `dev.remotemac.helper`), а в терминале
-появится QR-код. Ключи и настройки лежат в `~/Library/Application Support/RemoteMac Helper/`,
-лог в `~/Library/Logs/RemoteMac Helper.log`.
+The helper starts now and at every login (LaunchAgent `dev.remotemac.helper`), and prints a QR code in the
+terminal. Keys and settings live in `~/Library/Application Support/RemoteMac Helper/`, the log in
+`~/Library/Logs/RemoteMac Helper.log`.
 
-QR-код содержит ключ доступа: не публикуйте его. Сеанс без сопряжённого телефона он не даёт, но открывает дверь
-Sill для попыток.
+The QR code holds an access key: don't share it. It gives no session without a paired phone, but it lets
+connection attempts reach Sill's door.
 
-Если порт remote door в Sill не 7455, добавьте `-sill-port N`.
+If Sill's remote door is not on port 7455, add `-sill-port N`.
 
-## 3. Телефон
+## 3. Phone
 
-1. Сопрягите телефон с Mac как обычно (дома).
-2. Отсканируйте QR от helper системной камерой или кнопкой «Scan Pairing Code» в приложении.
-   Показать код снова: `./rmhelper link`, или `./rmhelper link -png qr.png`.
-   Сопряжение через relay закрыто: сопрягайтесь дома.
+1. Pair the phone with the Mac as usual (at home).
+2. Scan the helper's QR code with the system camera or the app's "Scan Pairing Code" button.
+   Show the code again: `./rmhelper link`, or `./rmhelper link -png qr.png`.
+   Pairing over the relay is blocked: pair at home.
 
-В разделе «Away from home» у Mac появится «Remote · relay». Вне дома приложение сначала пробует адреса Sill
-(VPN, LAN), потом relay.
+The Mac gets a "Remote · relay" entry under "Away from home". Away from home the app tries Sill's own addresses
+(VPN, LAN) first, then the relay.
 
-## Потерянный телефон
+## Lost phone
 
-1. Удалите его в Sill на Mac: его сеансы оборвутся, ключ больше не примут.
-2. Смените ключ доступа: старый QR-код перестанет пускать к Mac.
+1. Remove it in Sill on the Mac: its sessions drop and its key is no longer accepted.
+2. Rotate the access key so the old QR code no longer reaches the Mac:
 
 ```bash
 ./rmhelper new-access
 ```
 
-Оставшиеся телефоны сканируют новый код.
+The remaining phones scan the new code.
 
-Если Sill на Mac переустановили с новым ключом, прочитайте его заново: `./rmhelper link -refresh`.
+If Sill on the Mac was reinstalled with a new key, read it again: `./rmhelper link -refresh`.
 
-## Удаление
+## Uninstall
 
 ```bash
 ./rmhelper uninstall
 ```
 
-## Проверка
+## Testing
 
 ```bash
 go test -race ./...
 ```
 
-Проверка с настоящим Sill без телефона: тестовый SillHost с `--remote=17455`, `rmrelay -listen 127.0.0.1:17456`,
-`rmhelper run -relay 127.0.0.1:17456 -sill-port 17455`, сопрягите консольный клиент (README в корне), затем
+End-to-end with a real Sill and no phone: a test SillHost with `--remote=17455`, `rmrelay -listen 127.0.0.1:17456`,
+`rmhelper run -relay 127.0.0.1:17456 -sill-port 17455`, pair the command-line client (see the root README), then
 
 ```bash
 protocol/build/install/protocol/bin/protocol 0 0 --relay-link "$(rmhelper link -relay 127.0.0.1:17456 -sill-port 17455 | grep ^remotemac)"
 ```
 
-Из эмулятора Android relay виден как `10.0.2.2:17456`: QR для него печатает `rmhelper link -relay 10.0.2.2:17456`.
+From the Android emulator the relay is at `10.0.2.2:17456`: `rmhelper link -relay 10.0.2.2:17456` prints its QR code.
 
-Для такой проверки не используйте `rmhelper install`: он ставит LaunchAgent в вашу настоящую сессию.
-Используйте `rmhelper run`.
+Don't use `rmhelper install` for this kind of test: it installs a LaunchAgent into your real session.
+Use `rmhelper run`.
