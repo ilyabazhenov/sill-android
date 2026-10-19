@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "remote-mac"
+rootProject.name = "sash"
 include(":protocol", ":app")

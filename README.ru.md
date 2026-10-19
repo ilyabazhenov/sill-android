@@ -71,7 +71,7 @@
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Release-сборка (`./gradlew :app:assembleRelease`) подписывается ключом из `RM_KEYSTORE` (путь к keystore), `RM_KEYSTORE_PASSWORD` и `RM_KEY_ALIAS`; без них — debug-ключом, только для проверки.
+Release-сборка (`./gradlew :app:assembleRelease`) подписывается ключом из `SASH_KEYSTORE` (путь к keystore), `SASH_KEYSTORE_PASSWORD` и `SASH_KEY_ALIAS`; без них — debug-ключом, только для проверки.
 
 ## Устройство проекта
 

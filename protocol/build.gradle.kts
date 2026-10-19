@@ -13,5 +13,5 @@ dependencies {
 
 // A command-line test client that speaks to a real Sill host (see tools/README in the repo root).
 application {
-    mainClass.set("dev.remotemac.protocol.cli.TestClientKt")
+    mainClass.set("dev.sash.protocol.cli.TestClientKt")
 }

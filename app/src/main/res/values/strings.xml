@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Sash</string>
+    <string name="app_name" translatable="false">Sash</string>
 
     <!-- Common -->
     <string name="cancel">Cancel</string>

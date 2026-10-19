@@ -20,7 +20,7 @@
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
-        android:theme="@style/Theme.RemoteMac">
+        android:theme="@style/Theme.Sash">
 
         <activity
             android:name=".MainActivity"

@@ -76,7 +76,7 @@ Needs JDK 17+ and the Android SDK (compileSdk 36). The app runs on Android 10 (A
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The release build (`./gradlew :app:assembleRelease`) is signed with the key from `RM_KEYSTORE` (keystore path), `RM_KEYSTORE_PASSWORD` and `RM_KEY_ALIAS`; without them it is debug-signed, for testing only.
+The release build (`./gradlew :app:assembleRelease`) is signed with the key from `SASH_KEYSTORE` (keystore path), `SASH_KEYSTORE_PASSWORD` and `SASH_KEY_ALIAS`; without them it is debug-signed, for testing only.
 
 ## Project layout
 
