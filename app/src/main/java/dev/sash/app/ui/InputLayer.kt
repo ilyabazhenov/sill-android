@@ -203,11 +203,13 @@ private fun withModifiers(c: Controller, mods: Long, click: () -> Unit) = c.with
  * or, if the finger then moves, a drag; one or two fingers pan to scroll (with momentum); three or
  * four fingers make the Mac's trackpad gestures. A mouse, trackpad or stylus is the Mac's mouse.
  * Given a [zoom], two fingers pinching zoom the picture, and once it is zoomed two fingers pan it.
+ * Given a [loupe], a held finger puts there the spot it is pressing or dragging to (a fraction of the picture).
  */
 fun Modifier.directInput(
     c: Controller, rect: () -> VideoRect?, latch: ModifierLatch, scope: CoroutineScope, zoom: PictureZoom? = null,
+    loupe: MutableState<Pair<Double, Double>?>? = null,
 ): Modifier = this
-    .pointerInput(zoom) {
+    .pointerInput(zoom, loupe) {
         val momentum = Momentum(scope, c, density)
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
@@ -232,121 +234,126 @@ fun Modifier.directInput(
             var twoStart: Pair<Offset, Float>? = null
             var pinchLast: Pair<Offset, Float>? = null
 
-            while (true) {
-                val event = if (!longFired && !scrolling && maxFingers == 1) {
-                    withTimeoutOrNull((LONG_PRESS_MS - (android.os.SystemClock.uptimeMillis() - startTime)).coerceAtLeast(1)) { awaitPointerEvent() }
-                } else awaitPointerEvent()
-                if (event == null) {
-                    // Held still: a long press. Haptic now; lifting without moving is a right click.
-                    longFired = true
-                    hapticLong()
-                    continue
-                }
-                val pressed = event.changes.filter { it.pressed }
-                event.changes.forEach { ch -> if (ch.pressed && ch.id.value !in startPos) startPos[ch.id.value] = ch.position }
-                maxFingers = maxOf(maxFingers, pressed.size)
-                if (pressed.isNotEmpty()) lastEnd = pressed.map { it.position }
-                if (pressed.size == 2 && twoStart == null) twoStart = pairOf(pressed)
-
-                val from = pinchLast
-                if (from != null) {
-                    event.changes.forEach { it.consume() }
-                    if (pressed.size == 2) {
-                        val now = pairOf(pressed)
-                        if (from.second > 0f) zoom!!.pinch(from.first, now.first, now.second / from.second)
-                        pinchLast = now
+            try {
+                while (true) {
+                    val event = if (!longFired && !scrolling && maxFingers == 1) {
+                        withTimeoutOrNull((LONG_PRESS_MS - (android.os.SystemClock.uptimeMillis() - startTime)).coerceAtLeast(1)) { awaitPointerEvent() }
+                    } else awaitPointerEvent()
+                    if (event == null) {
+                        // Held still: a long press. Haptic now; lifting without moving is a right click.
+                        longFired = true
+                        hapticLong()
+                        if (r0.contains(down.position)) loupe?.value = r0.clamped(down.position)
                         continue
                     }
-                    zoom!!.settle()
-                    if (pressed.isNotEmpty()) while (awaitPointerEvent().changes.any { it.pressed }) { /* until all lift */ }
-                    return@awaitEachGesture
-                }
+                    val pressed = event.changes.filter { it.pressed }
+                    event.changes.forEach { ch -> if (ch.pressed && ch.id.value !in startPos) startPos[ch.id.value] = ch.position }
+                    maxFingers = maxOf(maxFingers, pressed.size)
+                    if (pressed.isNotEmpty()) lastEnd = pressed.map { it.position }
+                    if (pressed.size == 2 && twoStart == null) twoStart = pairOf(pressed)
 
-                if (maxFingers >= 3) {
-                    if (gestureStart == null || (pressed.size > (gestureStart?.size ?: 0))) gestureStart = pressed.map { it.position }
-                    if (scrolling) { c.scrollPhase(ScrollPhase.ENDED, scrollAt.first, scrollAt.second); scrolling = false }
-                    event.changes.forEach { it.consume() }
-                    if (pressed.isEmpty() || pressed.size < (gestureStart?.size ?: 0)) {
-                        val name = decideGesture(gestureStart ?: emptyList(), lastEnd.take(gestureStart?.size ?: 0), density)
-                        if (name != null) c.gesture(name, maxFingers.coerceAtMost(4))
-                        // Wait for every finger to lift before the next stroke.
-                        while (event.changes.any { it.pressed }) { if (awaitPointerEvent().changes.none { it.pressed }) break }
+                    val from = pinchLast
+                    if (from != null) {
+                        event.changes.forEach { it.consume() }
+                        if (pressed.size == 2) {
+                            val now = pairOf(pressed)
+                            if (from.second > 0f) zoom!!.pinch(from.first, now.first, now.second / from.second)
+                            pinchLast = now
+                            continue
+                        }
+                        zoom!!.settle()
+                        if (pressed.isNotEmpty()) while (awaitPointerEvent().changes.any { it.pressed }) { /* until all lift */ }
                         return@awaitEachGesture
                     }
-                    continue
-                }
 
-                val centroid = if (pressed.isEmpty()) lastCentroid else pressed.map { it.position }.reduce { a, b -> a + b } / pressed.size.toFloat()
-                val moved = pressed.any { ch -> ((startPos[ch.id.value] ?: ch.position) - ch.position).getDistance() > slop }
-
-                if (longFired && maxFingers == 1) {
-                    val p = pressed.firstOrNull()
-                    if (p != null) {
-                        val (x, y) = r0.clamped(p.position)
-                        if (!dragging && moved) {
-                            val (sx, sy) = r0.clamped(down.position)
-                            c.move(sx, sy)
-                            c.pointer(PointerAction.LEFT_DOWN, sx, sy)
-                            dragging = true
+                    if (maxFingers >= 3) {
+                        if (gestureStart == null || (pressed.size > (gestureStart?.size ?: 0))) gestureStart = pressed.map { it.position }
+                        if (scrolling) { c.scrollPhase(ScrollPhase.ENDED, scrollAt.first, scrollAt.second); scrolling = false }
+                        event.changes.forEach { it.consume() }
+                        if (pressed.isEmpty() || pressed.size < (gestureStart?.size ?: 0)) {
+                            val name = decideGesture(gestureStart ?: emptyList(), lastEnd.take(gestureStart?.size ?: 0), density)
+                            if (name != null) c.gesture(name, maxFingers.coerceAtMost(4))
+                            // Wait for every finger to lift before the next stroke.
+                            while (event.changes.any { it.pressed }) { if (awaitPointerEvent().changes.none { it.pressed }) break }
+                            return@awaitEachGesture
                         }
-                        if (dragging) c.move(x, y)
-                        p.consume()
-                    } else {
-                        if (dragging) {
-                            val (x, y) = r0.clamped(lastEnd.firstOrNull() ?: down.position)
-                            c.pointer(PointerAction.LEFT_UP, x, y)
+                        continue
+                    }
+
+                    val centroid = if (pressed.isEmpty()) lastCentroid else pressed.map { it.position }.reduce { a, b -> a + b } / pressed.size.toFloat()
+                    val moved = pressed.any { ch -> ((startPos[ch.id.value] ?: ch.position) - ch.position).getDistance() > slop }
+
+                    if (longFired && maxFingers == 1) {
+                        val p = pressed.firstOrNull()
+                        if (p != null) {
+                            val (x, y) = r0.clamped(p.position)
+                            if (!dragging && moved) {
+                                val (sx, sy) = r0.clamped(down.position)
+                                c.move(sx, sy)
+                                c.pointer(PointerAction.LEFT_DOWN, sx, sy)
+                                dragging = true
+                            }
+                            if (dragging) { c.move(x, y); loupe?.value = x to y }
+                            p.consume()
                         } else {
-                            val (x, y) = r0.clamped(down.position)
-                            if (r0.contains(down.position)) {
-                                c.move(x, y)
-                                withModifiers(c, latch.take()) {
-                                    c.pointer(PointerAction.RIGHT_DOWN, x, y); c.pointer(PointerAction.RIGHT_UP, x, y)
+                            if (dragging) {
+                                val (x, y) = r0.clamped(lastEnd.firstOrNull() ?: down.position)
+                                c.pointer(PointerAction.LEFT_UP, x, y)
+                            } else {
+                                val (x, y) = r0.clamped(down.position)
+                                if (r0.contains(down.position)) {
+                                    c.move(x, y)
+                                    withModifiers(c, latch.take()) {
+                                        c.pointer(PointerAction.RIGHT_DOWN, x, y); c.pointer(PointerAction.RIGHT_UP, x, y)
+                                    }
                                 }
                             }
+                            return@awaitEachGesture
+                        }
+                        continue
+                    }
+
+                    if (zoom != null && !scrolling && moved && pressed.size == 2 && isPinch(twoStart, pairOf(pressed), zoom.zoomed)) {
+                        pinchLast = pairOf(pressed)
+                        event.changes.forEach { it.consume() }
+                        continue
+                    }
+                    if (!scrolling && moved && pressed.isNotEmpty()) {
+                        scrolling = true
+                        scrollAt = r0.clamped(centroid)
+                        lastCentroid = centroid
+                        c.move(scrollAt.first, scrollAt.second)
+                        c.scrollPhase(ScrollPhase.BEGAN, scrollAt.first, scrollAt.second)
+                    }
+                    if (scrolling) {
+                        if (pressed.isNotEmpty()) {
+                            val d = centroid - lastCentroid
+                            lastCentroid = centroid
+                            tracker.addPosition(event.changes.first().uptimeMillis, centroid)
+                            val r = rect() ?: r0
+                            if (d != Offset.Zero) c.scroll(scrollAt.first, scrollAt.second, (d.x / r.width).toDouble(), (d.y / r.height).toDouble())
+                            event.changes.forEach { it.consume() }
+                        } else {
+                            c.scrollPhase(ScrollPhase.ENDED, scrollAt.first, scrollAt.second)
+                            val v = tracker.calculateVelocity()
+                            val speed = hypot(v.x, v.y) / density
+                            if (speed > MOMENTUM_MIN_DP_S) momentum.start(Offset(v.x, v.y), scrollAt, rect)
+                            return@awaitEachGesture
+                        }
+                        continue
+                    }
+
+                    if (pressed.isEmpty()) {
+                        // A tap: one finger clicks where it lands, two fingers are a right click.
+                        if (r0.contains(down.position)) {
+                            val (x, y) = r0.clamped(down.position)
+                            c.tapClick(x, y, secondary = maxFingers >= 2, mods = latch.take())
                         }
                         return@awaitEachGesture
                     }
-                    continue
                 }
-
-                if (zoom != null && !scrolling && moved && pressed.size == 2 && isPinch(twoStart, pairOf(pressed), zoom.zoomed)) {
-                    pinchLast = pairOf(pressed)
-                    event.changes.forEach { it.consume() }
-                    continue
-                }
-                if (!scrolling && moved && pressed.isNotEmpty()) {
-                    scrolling = true
-                    scrollAt = r0.clamped(centroid)
-                    lastCentroid = centroid
-                    c.move(scrollAt.first, scrollAt.second)
-                    c.scrollPhase(ScrollPhase.BEGAN, scrollAt.first, scrollAt.second)
-                }
-                if (scrolling) {
-                    if (pressed.isNotEmpty()) {
-                        val d = centroid - lastCentroid
-                        lastCentroid = centroid
-                        tracker.addPosition(event.changes.first().uptimeMillis, centroid)
-                        val r = rect() ?: r0
-                        if (d != Offset.Zero) c.scroll(scrollAt.first, scrollAt.second, (d.x / r.width).toDouble(), (d.y / r.height).toDouble())
-                        event.changes.forEach { it.consume() }
-                    } else {
-                        c.scrollPhase(ScrollPhase.ENDED, scrollAt.first, scrollAt.second)
-                        val v = tracker.calculateVelocity()
-                        val speed = hypot(v.x, v.y) / density
-                        if (speed > MOMENTUM_MIN_DP_S) momentum.start(Offset(v.x, v.y), scrollAt, rect)
-                        return@awaitEachGesture
-                    }
-                    continue
-                }
-
-                if (pressed.isEmpty()) {
-                    // A tap: one finger clicks where it lands, two fingers are a right click.
-                    if (r0.contains(down.position)) {
-                        val (x, y) = r0.clamped(down.position)
-                        c.tapClick(x, y, secondary = maxFingers >= 2, mods = latch.take())
-                    }
-                    return@awaitEachGesture
-                }
+            } finally {
+                loupe?.value = null
             }
         }
     }

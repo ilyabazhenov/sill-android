@@ -411,6 +411,8 @@ private fun VideoPane(
     val rect = if (lifted == 0f) base else base.copy(top = base.top - lifted)
     val rectRef = remember { mutableStateOf<VideoRect?>(null) }
     rectRef.value = if (box.width > 0) rect else null
+    var surfaceView by remember { mutableStateOf<SurfaceView?>(null) }
+    val loupe = remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
     // The viewport: this pane's size in dp, the Aa scale, and the display's refresh rate.
     val refresh = LocalView.current.display?.refreshRate?.roundToInt() ?: 60
@@ -445,7 +447,7 @@ private fun VideoPane(
                         override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
                         override fun surfaceDestroyed(holder: SurfaceHolder) { c.decoder.attach(null) }
                     })
-                }
+                }.also { surfaceView = it }
             },
         )
         key(trackpad != null) {
@@ -458,7 +460,7 @@ private fun VideoPane(
                         .hoverInput(c) { rectRef.value },
                 )
             } else {
-                Box(Modifier.fillMaxSize().directInput(c, { rectRef.value }, latch, scope, zoom))
+                Box(Modifier.fillMaxSize().directInput(c, { rectRef.value }, latch, scope, zoom, loupe))
             }
         }
 
@@ -490,6 +492,7 @@ private fun VideoPane(
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start)).padding(12.dp),
             ) { zoom.reset() }
         }
+        Loupe(loupe.value, surfaceView, videoSize, rect, box)
     }
 }
 
