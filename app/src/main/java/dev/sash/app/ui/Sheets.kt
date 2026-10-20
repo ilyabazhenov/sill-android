@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.sash.app.MainActivity
 import dev.sash.app.R
+import dev.sash.app.stream.BarPosition
 import dev.sash.app.stream.Controller
 import dev.sash.app.stream.orderedWindows
 import dev.sash.protocol.HostSettingsChange
@@ -58,7 +59,7 @@ import dev.sash.protocol.StreamSource
 /** The Mac's streaming settings, as its own menu has them, and this device's. */
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, onDismiss: () -> Unit) {
+fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, tall: Boolean, onDismiss: () -> Unit) {
     val state by c.settings.collectAsState()
     val pending by c.settingsPending.collectAsState()
     val windows by c.windows.collectAsState()
@@ -67,6 +68,7 @@ fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, onDismiss: ()
     val gestures by c.gesturesOn.collectAsState()
     val trackpadMode by c.trackpadMode.collectAsState()
     val autoKeyboard by c.autoKeyboard.collectAsState()
+    val barAt by c.barPosition.collectAsState()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
             Text(windows?.macName ?: "Mac", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -146,6 +148,15 @@ fun SettingsSheet(c: Controller, showStats: MutableState<Boolean>, onDismiss: ()
             ToggleRow(stringResource(R.string.trackpad_mode), trackpadMode, stringResource(R.string.trackpad_mode_note)) { c.setTrackpadMode(it) }
             ToggleRow(stringResource(R.string.auto_keyboard), autoKeyboard, stringResource(R.string.auto_keyboard_note)) { c.setAutoKeyboard(it) }
             ToggleRow(stringResource(R.string.show_stats), showStats.value) { showStats.value = it }
+            if (tall) {
+                Text(stringResource(R.string.bar_position), Modifier.padding(top = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(BarPosition.TOP to R.string.bar_top, BarPosition.MIDDLE to R.string.bar_middle, BarPosition.BOTTOM to R.string.bar_bottom).forEach { (at, name) ->
+                        FilterChip(barAt == at, { c.setBarPosition(at) }, label = { Text(stringResource(name)) })
+                    }
+                }
+                Text(stringResource(R.string.bar_position_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
 
             Spacer(Modifier.height(20.dp))
             Button(

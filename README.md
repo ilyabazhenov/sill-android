@@ -34,7 +34,8 @@ This is an **unofficial** Android client for [Sill](https://getsill.app) (open s
 - **Trackpad mode** (phone upright): picture on top, key row, trackpad below.
   - tap to click, two-finger tap to right-click;
   - two-finger scrolling;
-  - long press and move to drag.
+  - long press and move to drag;
+  - on a tall screen, such as a foldable's inner one, the bar with the windows sits at the top, in the middle or at the bottom, as you choose in Settings.
 - **Three-finger gestures**: Mission Control, App Exposé, switching Spaces, Apps, Show Desktop.
 - **Keyboard**:
   - on-screen: text, Delete, Return;

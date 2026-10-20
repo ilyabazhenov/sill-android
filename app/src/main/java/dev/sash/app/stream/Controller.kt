@@ -91,6 +91,9 @@ sealed class Target {
 
 enum class Phase { IDLE, DIALING, CONNECTED, RECONNECTING }
 
+/** Where a tall screen's bar sits: above the picture, between it and the trackpad, or under the trackpad. */
+enum class BarPosition { TOP, MIDDLE, BOTTOM }
+
 /** What the connect screen shows while a pairing is under way. */
 data class PairingPrompt(
     val macName: String,
@@ -187,6 +190,9 @@ class Controller(private val context: Context) {
     val trackpadMode = MutableStateFlow(prefs().getBoolean("trackpadMode", false))
     /** A click that lands in text offers the software keyboard (a button by it for a few seconds). */
     val autoKeyboard = MutableStateFlow(prefs().getBoolean("autoKeyboard", true))
+    val barPosition = MutableStateFlow(
+        prefs().getString("barPosition", null)?.let { n -> BarPosition.entries.firstOrNull { it.name == n } } ?: BarPosition.TOP,
+    )
 
     private val _lastClick = MutableStateFlow<Pair<Double, Double>?>(null)
     /** Where the last plain click landed (frame fractions): the spot the keyboard keeps in sight. */
@@ -325,6 +331,11 @@ class Controller(private val context: Context) {
     fun setAutoKeyboard(on: Boolean) {
         autoKeyboard.value = on
         prefs().edit().putBoolean("autoKeyboard", on).apply()
+    }
+
+    fun setBarPosition(at: BarPosition) {
+        barPosition.value = at
+        prefs().edit().putString("barPosition", at.name).apply()
     }
 
     // =============================================================================================

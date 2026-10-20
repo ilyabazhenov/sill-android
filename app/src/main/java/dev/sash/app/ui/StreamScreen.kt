@@ -127,6 +127,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.sash.app.MainActivity
 import dev.sash.app.R
+import dev.sash.app.stream.BarPosition
 import dev.sash.app.stream.Controller
 import dev.sash.app.stream.orderedWindows
 import dev.sash.app.stream.HidKeys
@@ -167,6 +168,9 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
     val trackCursor = remember { mutableStateOf(0.5 to 0.5) }
     val showStats = remember { mutableStateOf(false) }
     val trackpadMode by c.trackpadMode.collectAsState()
+    val barAt by c.barPosition.collectAsState()
+    /** Whether the layout is the tall one, where the bar's place can be chosen. */
+    var tallLayout by remember { mutableStateOf(false) }
     /** Window y where the keyboard begins and where the key row under the bar ends: the picture is lifted between them. */
     var imeTop by remember { mutableStateOf<Float?>(null) }
     var keysBottom by remember { mutableStateOf<Float?>(null) }
@@ -194,6 +198,7 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
         // A tall screen too wide for the phone layout (a foldable's inner one held upright): the
         // picture the shape of the Mac's screen under the bar, and a trackpad in the room below it.
         val tall = !portrait && maxHeight - BarHeight - maxWidth / deskAspect >= 200.dp
+        SideEffect { tallLayout = tall }
         // Pinch zoom of the picture; each new picture starts fitted.
         val zoom = remember(portrait) { PictureZoom() }
         LaunchedEffect(zoom, windows?.active) { zoom.reset() }
@@ -223,13 +228,19 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                     if (keyboardUp) Spacer(Modifier.height(1.dp))
                 }
             } else if (tall) {
-                // The key row sits on the trackpad, for modifier clicks; with the keyboard up, which
-                // covers the trackpad, it moves under the bar. The picture keeps its room and is lifted
-                // only if the keyboard reaches it.
+                // The bar sits where the settings put it: above the picture, between it and the key
+                // row, or under the trackpad. The key row sits on the trackpad, for modifier clicks;
+                // with the keyboard up, which covers the trackpad, it moves to the top (under a bar
+                // there), and a bar from the middle or the bottom rides on the keyboard. The picture
+                // keeps its room and is lifted only if the keyboard, or the bar on it, reaches it.
                 val sides = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+                val bar: @Composable () -> Unit = {
+                    TopBar(c, Modifier, keyboardUp, { keyboardUp = !keyboardUp }, { sheet = it }, scale, { scale = it })
+                }
+                val barTop = barAt == BarPosition.TOP
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(sides)) {
-                        TopBar(c, Modifier, keyboardUp, { keyboardUp = !keyboardUp }, { sheet = it }, scale, { scale = it })
+                        if (barTop) bar()
                         if (keyboardUp) KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
                         Box(Modifier.fillMaxWidth().aspectRatio(deskAspect)) {
                             VideoPane(
@@ -238,15 +249,16 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                                 offerKeyboard = offerKeyboard,
                             )
                         }
+                        if (barAt == BarPosition.MIDDLE && !keyboardUp) bar()
                         if (!keyboardUp) KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
                         Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
+                        if (barAt == BarPosition.BOTTOM && !keyboardUp) bar()
                     }
                     if (keyboardUp) {
-                        Spacer(
-                            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
-                                .onGloballyPositioned { imeTop = it.positionInWindow().y },
-                        )
+                        val onKeyboard = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                            .onGloballyPositioned { imeTop = it.positionInWindow().y }
+                        if (barTop) Spacer(onKeyboard) else Box(onKeyboard) { bar() }
                     }
                 }
             } else {
@@ -355,7 +367,7 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
 
     // Keep the viewport the Mac sizes windows to in step with the picture's room and the Aa scale.
     when (sheet) {
-        Sheet.SETTINGS -> SettingsSheet(c, showStats, onDismiss = { sheet = null })
+        Sheet.SETTINGS -> SettingsSheet(c, showStats, tallLayout, onDismiss = { sheet = null })
         Sheet.APPS -> AppsSheet(c, activity, onDismiss = { sheet = null })
         Sheet.MENUS -> MenusSheet(c, onDismiss = { sheet = null })
         null -> {}

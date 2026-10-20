@@ -86,6 +86,11 @@
     <string name="auto_keyboard">Кнопка клавиатуры у текстовых полей</string>
     <string name="auto_keyboard_note">После щелчка по тексту на Mac (где указатель становится текстовым курсором) рядом на несколько секунд появляется кнопка, открывающая клавиатуру. Щелчки, открывающие или переключающие окно, её не показывают.</string>
     <string name="show_stats">Показывать статистику соединения</string>
+    <string name="bar_position">Расположение панели</string>
+    <string name="bar_position_note">Где на высоком экране стоит панель с окнами. Когда открыта клавиатура, панель из центра или снизу поднимается над ней.</string>
+    <string name="bar_top">Вверху</string>
+    <string name="bar_middle">В центре</string>
+    <string name="bar_bottom">Внизу</string>
 
     <!-- Quality presets -->
     <string name="preset_low">Низкое</string>

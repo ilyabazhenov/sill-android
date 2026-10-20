@@ -88,6 +88,11 @@
     <string name="auto_keyboard">Keyboard button for text fields</string>
     <string name="auto_keyboard_note">After a click into text on the Mac (where its pointer turns into an I-beam), a button by it opens the keyboard for a few seconds. Clicks that open or switch a window don\'t offer it.</string>
     <string name="show_stats">Show link statistics</string>
+    <string name="bar_position">Bar position</string>
+    <string name="bar_position_note">Where the bar with the windows sits on a tall screen. With the keyboard up, a bar in the middle or at the bottom rides on the keyboard.</string>
+    <string name="bar_top">Top</string>
+    <string name="bar_middle">Middle</string>
+    <string name="bar_bottom">Bottom</string>
 
     <!-- Quality presets -->
     <string name="preset_low">Low</string>
