@@ -753,13 +753,10 @@ section.band { padding-block: clamp(56px, 8vw, 104px) 0; }
 .rotate-note svg { width: 22px; height: 22px; flex: none; color: var(--signal); }
 
 /* gesture glossary */
-.gest-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
-.gest h3 { font: 600 1.0625rem/1.3 var(--f-body); margin-bottom: 4px; }
-.gest > p { color: var(--muted); font-size: var(--step--1); margin-bottom: 12px; }
-.gest dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); border-top: 1px solid var(--line); }
-.gest dt, .gest dd { margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.gest dt { display: flex; align-items: center; gap: 10px; padding-right: 14px; font-size: .9375rem; }
-.gest dd { font-size: .9375rem; color: var(--muted); text-align: right; }
+.gest-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; border-top: 1px solid var(--line); }
+.gest-list li { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; column-gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.gest-list b { font-weight: 500; font-size: .9375rem; }
+.gest-list li > span:last-child { grid-column: 2; color: var(--muted); font-size: .9375rem; }
 .fingers { display: inline-flex; gap: 3px; width: 32px; flex: none; }
 .fingers i { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); display: block; }
 .fingers.hold i { box-shadow: 0 0 0 3px var(--signal-soft); }
@@ -908,7 +905,7 @@ footer p { max-width: 46em; }
   .hero .wrap { grid-template-columns: minmax(0, 1fr); align-items: start; }
   .hero-copy { padding-bottom: 8px; }
   .band-head, .band-body { grid-template-columns: minmax(0, 1fr); }
-  .gest-grid { grid-template-columns: minmax(0, 1fr); }
+  .gest-list { grid-template-columns: minmax(0, 1fr); }
   .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .trust { grid-template-columns: minmax(0, 1fr); }
 }
@@ -1181,40 +1178,16 @@ Performing Streamed Install
         <h2><span class="ru">Пальцы работают как мышь и трекпад Mac</span><span class="en">Your fingers work like the Mac’s mouse and trackpad</span></h2>
       </div>
       <div class="band-body">
-        <p class="side"><span class="ru">Мышь, тачпад и стилус, подключённые к Android, работают как мышь Mac: с колесом и наведением.</span><span class="en">A mouse, touchpad or stylus on the Android works as the Mac’s mouse, wheel and hover included.</span></p>
+        <p class="side"><span class="ru">Касаетесь того, что видите. Если удобнее водить указатель, включите режим трекпада. Мышь и стилус тоже работают.</span><span class="en">Touch what you see. If you’d rather steer a pointer, turn on trackpad mode. A mouse or stylus works too.</span></p>
         <div class="main">
-          <div class="gest-grid">
-            <div class="gest">
-              <h3><span class="ru">Прямо в картинку</span><span class="en">Right on the picture</span></h3>
-              <p><span class="ru">Касаетесь того, что видите.</span><span class="en">Touch what you see.</span></p>
-              <dl>
-                <dt><span class="fingers"><i></i></span><span class="ru">касание</span><span class="en">tap</span></dt><dd><span class="ru">клик</span><span class="en">click</span></dd>
-                <dt><span class="fingers hold"><i></i></span><span class="ru">долгое нажатие</span><span class="en">long press</span></dt><dd><span class="ru">правый клик</span><span class="en">right click</span></dd>
-                <dt><span class="fingers hold"><i></i></span><span class="ru">нажать и вести</span><span class="en">press and move</span></dt><dd><span class="ru">перетаскивание</span><span class="en">drag</span></dd>
-                <dt><span class="fingers"><i></i><i></i></span><span class="ru">вести</span><span class="en">swipe</span></dt><dd><span class="ru">прокрутка с инерцией</span><span class="en">inertial scroll</span></dd>
-              </dl>
-            </div>
-            <div class="gest">
-              <h3><span class="ru">Режим трекпада</span><span class="en">Trackpad mode</span></h3>
-              <p><span class="ru">Телефон вертикально: картинка сверху, трекпад снизу.</span><span class="en">Phone upright: picture on top, trackpad below.</span></p>
-              <dl>
-                <dt><span class="fingers"><i></i></span><span class="ru">касание</span><span class="en">tap</span></dt><dd><span class="ru">клик</span><span class="en">click</span></dd>
-                <dt><span class="fingers"><i></i><i></i></span><span class="ru">касание</span><span class="en">tap</span></dt><dd><span class="ru">правый клик</span><span class="en">right click</span></dd>
-                <dt><span class="fingers"><i></i><i></i></span><span class="ru">вести</span><span class="en">swipe</span></dt><dd><span class="ru">прокрутка</span><span class="en">scroll</span></dd>
-                <dt><span class="fingers hold"><i></i></span><span class="ru">нажать и вести</span><span class="en">press and move</span></dt><dd><span class="ru">перетаскивание</span><span class="en">drag</span></dd>
-              </dl>
-            </div>
-            <div class="gest">
-              <h3><span class="ru">Тремя пальцами</span><span class="en">With three fingers</span></h3>
-              <p><span class="ru">Как на трекпаде MacBook.</span><span class="en">Just like a MacBook trackpad.</span></p>
-              <dl>
-                <dt><span class="fingers"><i></i><i></i><i></i></span><span class="ru">вверх</span><span class="en">up</span></dt><dd>Mission Control</dd>
-                <dt><span class="fingers"><i></i><i></i><i></i></span><span class="ru">вниз</span><span class="en">down</span></dt><dd>App Exposé</dd>
-                <dt><span class="fingers"><i></i><i></i><i></i></span><span class="ru">влево, вправо</span><span class="en">left, right</span></dt><dd><span class="ru">рабочие столы</span><span class="en">Spaces</span></dd>
-                <dt><span class="fingers"><i></i><i></i><i></i></span><span class="ru">свести, развести</span><span class="en">pinch, spread</span></dt><dd><span class="ru">приложения, стол</span><span class="en">Apps, Desktop</span></dd>
-              </dl>
-            </div>
-          </div>
+          <ul class="gest-list">
+            <li><span class="fingers"><i></i></span><b><span class="ru">Касание</span><span class="en">Tap</span></b><span><span class="ru">клик</span><span class="en">click</span></span></li>
+            <li><span class="fingers hold"><i></i></span><b><span class="ru">Долгое нажатие</span><span class="en">Long press</span></b><span><span class="ru">правый клик</span><span class="en">right click</span></span></li>
+            <li><span class="fingers hold"><i></i></span><b><span class="ru">Нажать и вести</span><span class="en">Press and move</span></b><span><span class="ru">перетащить</span><span class="en">drag</span></span></li>
+            <li><span class="fingers"><i></i><i></i></span><b><span class="ru">Два пальца</span><span class="en">Two fingers</span></b><span><span class="ru">прокрутка</span><span class="en">scroll</span></span></li>
+            <li><span class="fingers"><i></i><i></i><i></i></span><b><span class="ru">Три пальца вверх</span><span class="en">Three fingers up</span></b><span>Mission Control</span></li>
+            <li><span class="fingers"><i></i><i></i><i></i></span><b><span class="ru">Три пальца вбок</span><span class="en">Three fingers sideways</span></b><span><span class="ru">рабочие столы</span><span class="en">Spaces</span></span></li>
+          </ul>
         </div>
       </div>
     </div>
