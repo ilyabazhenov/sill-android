@@ -141,6 +141,8 @@ class ModifierLatch(private val state: MutableState<Long>) {
 }
 
 private const val LONG_PRESS_MS = 450L
+/** How long a long-pressed finger rests, where it is or after aiming, before the next move drags. */
+private const val GRAB_MS = 500L
 /** How long two fingers may rest on the trackpad and still count as a tap, a right click. */
 private const val TWO_FINGER_TAP_MS = 700L
 private const val MOMENTUM_MIN_DP_S = 150f
@@ -199,15 +201,16 @@ private fun decideGesture(start: List<Offset>, end: List<Offset>, density: Float
 private fun withModifiers(c: Controller, mods: Long, click: () -> Unit) = c.withModifiers(mods, click)
 
 /**
- * Direct touch: the picture is the Mac's screen. A tap clicks there; a long press is a right click,
- * or, if the finger then moves, a drag; one or two fingers pan to scroll (with momentum); three or
- * four fingers make the Mac's trackpad gestures. A mouse, trackpad or stylus is the Mac's mouse.
- * Given a [zoom], two fingers pinching zoom the picture, and once it is zoomed two fingers pan it.
- * Given a [loupe], a held finger puts there the spot it is pressing or dragging to (a fraction of the picture).
+ * Direct touch: the picture is the Mac's screen. A tap clicks there. A long press lifted where it is
+ * is a right click; moved, it aims (the Mac's pointer follows, no button) and lifting clicks there;
+ * held still a moment more, it grabs, and moving then drags. One or two fingers pan to scroll (with
+ * momentum); three or four fingers make the Mac's trackpad gestures. A mouse, trackpad or stylus is
+ * the Mac's mouse. Given a [zoom], two fingers pinching zoom the picture, and once it is zoomed two
+ * fingers pan it. Given a [loupe], a held finger puts there the spot it aims or drags at.
  */
 fun Modifier.directInput(
     c: Controller, rect: () -> VideoRect?, latch: ModifierLatch, scope: CoroutineScope, zoom: PictureZoom? = null,
-    loupe: MutableState<Pair<Double, Double>?>? = null,
+    loupe: MutableState<LoupeSpot?>? = null,
 ): Modifier = this
     .pointerInput(zoom, loupe) {
         val momentum = Momentum(scope, c, density)
@@ -225,6 +228,13 @@ fun Modifier.directInput(
             var scrolling = false
             var dragging = false
             var longFired = false
+            // After the long press: aiming (moved, no button), grabbed (held still again, the next move
+            // drags from the aim), and the spot and time the finger last came to rest at.
+            var aiming = false
+            var grabbed = false
+            var aim = down.position
+            var restAt = down.position
+            var restSince = 0L
             var gestureStart: List<Offset>? = null
             var lastEnd: List<Offset> = emptyList()
             val slop = viewConfiguration.touchSlop
@@ -236,14 +246,25 @@ fun Modifier.directInput(
 
             try {
                 while (true) {
+                    val clock = android.os.SystemClock.uptimeMillis()
                     val event = if (!longFired && !scrolling && maxFingers == 1) {
-                        withTimeoutOrNull((LONG_PRESS_MS - (android.os.SystemClock.uptimeMillis() - startTime)).coerceAtLeast(1)) { awaitPointerEvent() }
+                        withTimeoutOrNull((LONG_PRESS_MS - (clock - startTime)).coerceAtLeast(1)) { awaitPointerEvent() }
+                    } else if (longFired && !grabbed && maxFingers == 1) {
+                        withTimeoutOrNull((GRAB_MS - (clock - restSince)).coerceAtLeast(1)) { awaitPointerEvent() }
                     } else awaitPointerEvent()
-                    if (event == null) {
+                    if (event == null && !longFired) {
                         // Held still: a long press. Haptic now; lifting without moving is a right click.
                         longFired = true
+                        restSince = android.os.SystemClock.uptimeMillis()
                         hapticLong()
-                        if (r0.contains(down.position)) loupe?.value = r0.clamped(down.position)
+                        if (r0.contains(down.position)) loupe?.value = LoupeSpot(r0.clamped(down.position))
+                        continue
+                    }
+                    if (event == null) {
+                        // Held still again: grabbed. The next move presses the button at the aim and drags.
+                        grabbed = true
+                        hapticLong()
+                        loupe?.value = loupe?.value?.copy(grabbed = true)
                         continue
                     }
                     val pressed = event.changes.filter { it.pressed }
@@ -286,19 +307,28 @@ fun Modifier.directInput(
                     if (longFired && maxFingers == 1) {
                         val p = pressed.firstOrNull()
                         if (p != null) {
-                            val (x, y) = r0.clamped(p.position)
-                            if (!dragging && moved) {
-                                val (sx, sy) = r0.clamped(down.position)
+                            if (grabbed && !dragging && (p.position - restAt).getDistance() > slop) {
+                                val (sx, sy) = r0.clamped(aim)
                                 c.move(sx, sy)
                                 c.pointer(PointerAction.LEFT_DOWN, sx, sy)
                                 dragging = true
                             }
-                            if (dragging) { c.move(x, y); loupe?.value = x to y }
+                            if (!grabbed && !aiming && moved) aiming = true
+                            if (dragging || (aiming && !grabbed)) {
+                                if (!dragging) aim = p.position
+                                val (x, y) = r0.clamped(p.position)
+                                c.move(x, y)
+                                loupe?.value = LoupeSpot(x to y, grabbed = dragging)
+                            }
+                            if ((p.position - restAt).getDistance() > slop / 2) { restAt = p.position; restSince = p.uptimeMillis }
                             p.consume()
                         } else {
                             if (dragging) {
                                 val (x, y) = r0.clamped(lastEnd.firstOrNull() ?: down.position)
                                 c.pointer(PointerAction.LEFT_UP, x, y)
+                            } else if (aiming) {
+                                val (x, y) = r0.clamped(aim)
+                                c.tapClick(x, y, secondary = false, mods = latch.take())
                             } else {
                                 val (x, y) = r0.clamped(down.position)
                                 if (r0.contains(down.position)) {

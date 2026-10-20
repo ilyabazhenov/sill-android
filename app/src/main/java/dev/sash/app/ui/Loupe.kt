@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,15 +48,20 @@ private const val MAGNIFY = 2.5f
 /** Screen pixels per Mac frame pixel the loupe stops at, unless the picture is drawn larger still. */
 private const val MAX_PIXEL = 4f
 
+/** Where a held finger aims, as a fraction of the picture, and whether it has grabbed (moving drags). */
+data class LoupeSpot(val at: Pair<Double, Double>, val grabbed: Boolean = false)
+
 /**
- * The loupe: while a finger holds the picture (a long press, a drag), a bubble beside it shows the
- * Mac around [at] (a fraction of the picture) magnified, with a crosshair on the exact spot the
- * press or drop goes to. Its pixels are copied from the [surface]'s decoded frame, [video] pixels
- * in size, so they are sharper than the picture drawn into [rect]; [box] is the pane.
+ * The loupe: while a finger holds the picture (a long press, aiming, a drag), a bubble beside it
+ * shows the Mac around the [spot] magnified, with a crosshair on the exact point the click or drop
+ * goes to, and an accent edge once it has grabbed. Its pixels are copied from the [surface]'s
+ * decoded frame, [video] pixels in size, so they are sharper than the picture drawn into [rect];
+ * [box] is the pane.
  */
 @Composable
-fun Loupe(at: Pair<Double, Double>?, surface: SurfaceView?, video: Pair<Int, Int>?, rect: VideoRect, box: IntSize) {
-    if (at == null || surface == null || video == null || rect.width <= 0f) return
+fun Loupe(spot: LoupeSpot?, surface: SurfaceView?, video: Pair<Int, Int>?, rect: VideoRect, box: IntSize) {
+    if (spot == null || surface == null || video == null || rect.width <= 0f) return
+    val at = spot.at
     val density = LocalDensity.current
     val w = with(density) { LoupeWidth.toPx() }
     val h = with(density) { LoupeHeight.toPx() }
@@ -108,7 +114,11 @@ fun Loupe(at: Pair<Double, Double>?, surface: SurfaceView?, video: Pair<Int, Int
     Box(
         Modifier.offset { IntOffset(left.roundToInt(), top.roundToInt()) }.size(LoupeWidth, LoupeHeight)
             .shadow(8.dp, shape).clip(shape).background(Color.Black)
-            .border(1.5.dp, Color.White.copy(alpha = 0.85f), shape),
+            .border(
+                if (spot.grabbed) 3.dp else 1.5.dp,
+                if (spot.grabbed) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.85f),
+                shape,
+            ),
     ) {
         Canvas(Modifier.size(LoupeWidth, LoupeHeight)) {
             frame?.let { drawImage(it, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt())) }

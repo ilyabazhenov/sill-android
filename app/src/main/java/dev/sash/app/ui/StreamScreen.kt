@@ -412,7 +412,7 @@ private fun VideoPane(
     val rectRef = remember { mutableStateOf<VideoRect?>(null) }
     rectRef.value = if (box.width > 0) rect else null
     var surfaceView by remember { mutableStateOf<SurfaceView?>(null) }
-    val loupe = remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    val loupe = remember { mutableStateOf<LoupeSpot?>(null) }
 
     // The viewport: this pane's size in dp, the Aa scale, and the display's refresh rate.
     val refresh = LocalView.current.display?.refreshRate?.roundToInt() ?: 60

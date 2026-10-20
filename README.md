@@ -27,7 +27,8 @@ This is an **unofficial** Android client for [Sill](https://getsill.app) (open s
   - every app on the Mac, with search and launch.
 - **Direct input**:
   - tap to click, long press to right-click;
-  - long press and move to drag;
+  - long press and move to aim with a loupe, lift to click there;
+  - hold still a moment more, then move to drag;
   - one- or two-finger scrolling with momentum;
   - mouse, touchpad and stylus act as the Mac's mouse, wheel and hover included.
 - **Trackpad mode** (phone upright): picture on top, key row, trackpad below.
