@@ -6,6 +6,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -131,12 +132,17 @@ fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
                         Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                     }
                     Spacer(Modifier.height(20.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Wraps the second button onto its own line on narrow screens (Fold cover display)
+                    // instead of squeezing its label into a hyphenated column.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         FilledTonalButton(onClick = onScan) {
                             Icon(Icons.Default.QrCodeScanner, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.scan_pairing_code))
                         }
                         OutlinedButton(onClick = { addOpen = true }) {
-                            Icon(Icons.Default.Add, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.add_mac_more))
+                            Icon(Icons.Default.Add, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.add_mac_more), maxLines = 1)
                         }
                     }
                     Spacer(Modifier.height(24.dp))
