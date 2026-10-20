@@ -33,6 +33,11 @@ data class SavedMac(
     val lastConnectedAt: Long? = null,
     /** The Mac removed this device ("removed" goodbye): it must pair again. */
     val revoked: Boolean = false,
+    /**
+     * Sash's stream defaults were sent to this Mac (once, at the first session after pairing).
+     * Records from before this field read true, so an update never overrides a Mac's own choices.
+     */
+    val defaultsSent: Boolean = true,
 ) {
     val pin: ByteArray get() = Base64URL.decode(fingerprint)!!
 

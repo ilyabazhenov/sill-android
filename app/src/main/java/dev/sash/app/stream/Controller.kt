@@ -28,6 +28,7 @@ import dev.sash.protocol.Goodbye
 import dev.sash.protocol.HomeDoor
 import dev.sash.protocol.HostSettingsChange
 import dev.sash.protocol.HostSettingsState
+import dev.sash.protocol.QualityPreset
 import dev.sash.protocol.Input
 import dev.sash.protocol.MacMenu
 import dev.sash.protocol.MacMenuItem
@@ -587,6 +588,7 @@ class Controller(private val context: Context) {
             bonjourName = row?.serviceName,
             typedAddresses = listOfNotNull(typedAddress),
             lastWorked = typedAddress,
+            defaultsSent = false,
         )
         saved.save(mac)
         _pairing.value = null
@@ -653,6 +655,7 @@ class Controller(private val context: Context) {
 
         override fun onHostSettings(state: HostSettingsState) = onMain {
             _settings.value = state
+            sendDefaultsOnce(state)
             val pending = _settingsPending.value
             if (pending != null && state.answering != null && state.answering!! >= (pending.token ?: 0)) {
                 val refused = (pending.bitrate != null && pending.bitrate != state.settings.bitrate) ||
@@ -1008,6 +1011,31 @@ class Controller(private val context: Context) {
         // A gesture acts on the Mac's own screen: the Desktop first while a window streams.
         if (_windows.value?.active is StreamSource.Window) select(StreamSource.Desktop)
         session?.gesture(TrackpadGesture(name, fingers))
+    }
+
+    /**
+     * The first session at home with a Mac just paired sets Sash's defaults on it: Balanced,
+     * Standard, 60 fps and Prioritize Encoding Speed (the Mac's own are Retina, 120 fps and off).
+     * Away from home the quality and resolution are the away pair, so it waits for a home session.
+     */
+    private val defaultsTried = mutableSetOf<String>()
+
+    private fun sendDefaultsOnce(state: HostSettingsState) {
+        val pin = sessionPin ?: return
+        val mac = saved.byFingerprint(pin)?.takeIf { !it.defaultsSent } ?: return
+        if (state.away?.thisConnectionAway == true || _settingsPending.value != null) return
+        // Once per launch at most, so a Mac that refuses a value is not asked again and again.
+        if (!defaultsTried.add(mac.macID)) return
+        val s = state.settings
+        val change = HostSettingsChange(
+            bitrate = QualityPreset.BALANCED.bitrate.takeIf { it != s.bitrate },
+            captureScale = 1.0.takeIf { it != s.captureScale },
+            maxFPS = 60.takeIf { it != s.maxFPS },
+            prioritizeSpeed = true.takeIf { it != s.prioritizeSpeed },
+        )
+        if (change != HostSettingsChange()) changeSettings(change)
+        // A Mac that keeps no settings (the CLI) hears them again at its next session.
+        if (state.persistent) saved.update(mac.macID) { it.copy(defaultsSent = true) }
     }
 
     fun changeSettings(change: HostSettingsChange) {
