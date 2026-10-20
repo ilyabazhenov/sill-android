@@ -96,9 +96,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -192,22 +194,27 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
         // A tall screen too wide for the phone layout (a foldable's inner one held upright): the
         // picture the shape of the Mac's screen under the bar, and a trackpad in the room below it.
         val tall = !portrait && maxHeight - BarHeight - maxWidth / deskAspect >= 200.dp
-        // Pinch zoom where the picture has the screen to itself; each new picture starts fitted.
-        val zoom = remember(portrait) { if (portrait) null else PictureZoom() }
-        LaunchedEffect(zoom, windows?.active) { zoom?.reset() }
+        // Pinch zoom of the picture; each new picture starts fitted.
+        val zoom = remember(portrait) { PictureZoom() }
+        LaunchedEffect(zoom, windows?.active) { zoom.reset() }
         // Back puts the keyboard away, then the zoom, and only then asks to disconnect.
         BackHandler {
             when {
                 keyboardUp -> keyboardUp = false
-                zoom?.zoomed == true -> zoom.reset()
+                zoom.zoomed -> zoom.reset()
                 else -> leaving = true
             }
         }
         val content: @Composable () -> Unit = {
             if (portrait) {
+                // Zoomed in, the picture is cut at its pane, and the view follows the pointer the pad moves.
+                val margin = with(LocalDensity.current) { 48.dp.toPx() }
+                LaunchedEffect(zoom, margin) {
+                    snapshotFlow { trackCursor.value }.collect { zoom.follow(it, margin) }
+                }
                 Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                    Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f)) {
-                        VideoPane(c, latch, scope, scale, trackCursor.value, showStats.value, null, offerKeyboard = offerKeyboard)
+                    Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f).clipToBounds()) {
+                        VideoPane(c, latch, scope, scale, trackCursor.value, showStats.value, null, zoom = zoom, offerKeyboard = offerKeyboard)
                     }
                     ButtonRow(c, keyboardUp, onKeyboard = { keyboardUp = !keyboardUp }, onSheet = { sheet = it }, scale = scale, onScale = { scale = it })
                     WindowStrip(c, Modifier.fillMaxWidth().height(64.dp))
@@ -259,7 +266,7 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                 // Where the fitted picture leaves a black band above it wide enough for the bar (a
                 // squarer screen, such as a foldable's inner one), the bar stays put: it hides nothing.
                 val density = LocalDensity.current
-                val barFits = zoom?.zoomed != true && videoSize?.let { (w, h) ->
+                val barFits = !zoom.zoomed && videoSize?.let { (w, h) ->
                     val fit = with(density) { VideoRect.fit(maxWidth.toPx(), maxHeight.toPx(), w, h) }
                     fit.top >= barInsets.getTop(density) + with(density) { BarHeight.toPx() }
                 } == true
