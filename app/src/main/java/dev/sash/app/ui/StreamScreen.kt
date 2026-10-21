@@ -229,11 +229,16 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                     Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f).clipToBounds()) {
                         VideoPane(c, latch, scope, scale, trackCursor.value, showStats.value, null, zoom = zoom, offerKeyboard = offerKeyboard)
                     }
-                    ButtonRow(c, keyboardUp, onKeyboard = { keyboardUp = !keyboardUp }, onSheet = { sheet = it }, scale = scale, onScale = { scale = it })
-                    // With the keyboard up the room above it is short: the window strip and the
-                    // trackpad step aside (rather than being squeezed), and the Mac's keys sit on the keyboard.
-                    if (!keyboardUp) WindowStrip(c, Modifier.fillMaxWidth().height(64.dp))
-                    if (keyboardUp) Spacer(Modifier.weight(1f))
+                    // With the keyboard up the room above it can be shorter than the bar and the key
+                    // row together (a tall keyboard on a narrow screen): the Mac's keys take the bar's
+                    // place, sitting on the keyboard, and the window strip and the trackpad step aside.
+                    // The keyboard goes away by its own key, Back, or a swipe.
+                    if (!keyboardUp) {
+                        ButtonRow(c, keyboardUp, onKeyboard = { keyboardUp = !keyboardUp }, onSheet = { sheet = it }, scale = scale, onScale = { scale = it })
+                        WindowStrip(c, Modifier.fillMaxWidth().height(64.dp))
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
                     KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
                     if (!keyboardUp) Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
                     if (keyboardUp) Spacer(Modifier.height(1.dp))
