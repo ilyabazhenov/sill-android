@@ -231,6 +231,18 @@ class Controller(private val context: Context) {
                 watchPicture()
             }
         }
+        // Each saved Mac Bonjour lists: its home door kept, to dial when Bonjour doesn't hear it.
+        scope.launch {
+            discovery.macs.collect { rows ->
+                for (row in rows) {
+                    if (row.door == HomeDoor.PLAIN) continue
+                    val ip = row.addresses.firstOrNull { it is java.net.Inet4Address }?.hostAddress ?: continue
+                    val mac = saved.byTag(row.tag) ?: continue
+                    val at = ParsedAddress(ip, row.port).text
+                    if (mac.homeAddress != at) saved.update(mac.macID) { it.copy(homeAddress = at) }
+                }
+            }
+        }
     }
 
     private var lastResync = 0L
@@ -445,12 +457,16 @@ class Controller(private val context: Context) {
         return won.first
     }
 
-    /** The address that worked last time first, then Sill's own (VPN, LAN, internet), then typed ones. */
+    /**
+     * The address that worked last time first, then the home door Bonjour last listed (Bonjour may
+     * just not hear the Mac now), then Sill's own (VPN, LAN, internet), then typed ones.
+     */
     private fun remoteCandidates(mac: SavedMac): List<Way> {
         val out = LinkedHashMap<String, Way>()
         fun add(w: Way) { out.putIfAbsent(w.text, w) }
         fun direct(a: ParsedAddress) = add(Way(a.host, a.port ?: mac.remotePort))
         mac.lastWorked?.let { ParsedAddress.parse(it) }?.let(::direct)
+        mac.homeAddress?.let { ParsedAddress.parse(it) }?.takeIf { it.port != null }?.let(::direct)
         val rank = mapOf("vpn" to 0, "lan" to 1, "internet" to 2)
         mac.addresses.sortedBy { rank[it.kind] ?: 3 }.forEach { add(Way(it.host, it.port ?: mac.remotePort)) }
         mac.typedAddresses.mapNotNull { ParsedAddress.parse(it) }.forEach(::direct)
@@ -851,7 +867,7 @@ class Controller(private val context: Context) {
             }
             val next = when {
                 row != null -> Target.Row(row, mac)
-                mac != null && (mac.addresses.isNotEmpty() || mac.typedAddresses.isNotEmpty() || mac.lastWorked != null) -> Target.Remote(mac)
+                mac != null && (mac.addresses.isNotEmpty() || mac.typedAddresses.isNotEmpty() || mac.lastWorked != null || mac.homeAddress != null) -> Target.Remote(mac)
                 t is Target.Address -> t
                 else -> null
             }
@@ -885,9 +901,8 @@ class Controller(private val context: Context) {
         _status.value = null
     }
 
-    /** Back in front after the background: a dead browser and a dead link are found again. */
+    /** Back in front after the background: a dead link is found again (the browse began afresh in onStart). */
     fun cameForward() {
-        discovery.restart()
         if (_phase.value == Phase.RECONNECTING) { reconnectAttempts = 0; scheduleReconnect() }
     }
 

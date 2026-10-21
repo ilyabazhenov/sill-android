@@ -1,6 +1,11 @@
 package dev.sash.app.net
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.SystemClock
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Build
@@ -32,9 +37,15 @@ data class FoundMac(
  * NsdManager browsing for `_sill._tcp`, each service resolved for its address, port and TXT record.
  * From Android 14 a service-info callback follows the record as it changes; before, services are
  * resolved one at a time (resolveService refuses a second while one runs).
+ *
+ * A browse whose first queries go unanswered (Wi-Fi just back from power saving, a router that
+ * drops some multicast) hears again only as Android's queries back off, so while nothing is listed
+ * the browse starts over every few seconds, and it starts over when a Wi-Fi or Ethernet network
+ * comes or goes.
  */
 class Discovery(context: Context) {
     private val nsd = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+    private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
     private val _macs = MutableStateFlow<List<FoundMac>>(emptyList())
@@ -47,20 +58,60 @@ class Discovery(context: Context) {
     private val queue = ArrayDeque<NsdServiceInfo>()
     private var resolving = false
     private var listener: NsdManager.DiscoveryListener? = null
+    /** Between [start] and [stop]: the app wants Macs listed. */
+    private var running = false
+    private var retries = 0
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var watchingSince = 0L
+
+    private val retry = Runnable {
+        if (running && found.isEmpty()) { retries++; browseAgain() }
+    }
+    private val networkChanged = Runnable {
+        if (running) { retries = 0; browseAgain() }
+    }
 
     fun start() {
+        if (running) return
+        running = true
+        retries = 0
+        browse()
+        watchNetworks()
+    }
+
+    fun stop() {
+        running = false
+        main.removeCallbacks(retry)
+        main.removeCallbacks(networkChanged)
+        networkCallback?.let { try { connectivity.unregisterNetworkCallback(it) } catch (_: Exception) {} }
+        networkCallback = null
+        halt()
+    }
+
+    /** A fresh browse: Android, like iOS, can leave a browser stale after a long background stay. */
+    fun restart() {
+        if (!running) start() else { retries = 0; browseAgain() }
+    }
+
+    private fun browse() {
         if (listener != null) return
+        // Each callback checks it still belongs to the browse running now: a browse stopped and
+        // started again must not have the old one's late failure or results land on the new one.
         val l = object : NsdManager.DiscoveryListener {
-            override fun onDiscoveryStarted(serviceType: String) { _failed.value = false }
+            override fun onDiscoveryStarted(serviceType: String) = main.post { if (listener === this) _failed.value = false }.let {}
             override fun onDiscoveryStopped(serviceType: String) {}
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
                 Log.w(TAG, "discovery failed: $errorCode")
-                _failed.value = true
-                main.post { listener = null }
+                main.post {
+                    if (listener !== this) return@post
+                    listener = null
+                    _failed.value = true
+                    scheduleRetry()
+                }
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
-            override fun onServiceFound(info: NsdServiceInfo) = main.post { resolve(info) }.let {}
-            override fun onServiceLost(info: NsdServiceInfo) = main.post { lost(info.serviceName) }.let {}
+            override fun onServiceFound(info: NsdServiceInfo) = main.post { if (listener === this) resolve(info) }.let {}
+            override fun onServiceLost(info: NsdServiceInfo) = main.post { if (listener === this) lost(info.serviceName) }.let {}
         }
         listener = l
         try {
@@ -70,9 +121,11 @@ class Discovery(context: Context) {
             listener = null
             _failed.value = true
         }
+        scheduleRetry()
     }
 
-    fun stop() {
+    /** Stops the browse and forgets what it listed; [running] is left as it is. */
+    private fun halt() {
         listener?.let { try { nsd.stopServiceDiscovery(it) } catch (_: Exception) {} }
         listener = null
         if (Build.VERSION.SDK_INT >= 34) {
@@ -85,10 +138,44 @@ class Discovery(context: Context) {
         publish()
     }
 
-    /** A fresh browse: Android, like iOS, can leave a browser stale after a long background stay. */
-    fun restart() {
-        stop()
-        start()
+    private fun browseAgain() {
+        halt()
+        browse()
+    }
+
+    /** Starts the browse over after a while, unless a Mac is listed by then. */
+    private fun scheduleRetry() {
+        main.removeCallbacks(retry)
+        if (running) main.postDelayed(retry, RETRY_MS[minOf(retries, RETRY_MS.lastIndex)])
+    }
+
+    /** Wi-Fi or Ethernet coming or going (another network, Wi-Fi back on): the browse starts over. */
+    private fun watchNetworks() {
+        if (networkCallback != null) return
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = changed()
+            override fun onLost(network: Network) = changed()
+            private fun changed() {
+                main.post {
+                    // Registering reports the networks there already; only later changes count.
+                    if (SystemClock.uptimeMillis() - watchingSince < 1_500) return@post
+                    main.removeCallbacks(networkChanged)
+                    main.postDelayed(networkChanged, 1_000)
+                }
+            }
+        }
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        watchingSince = SystemClock.uptimeMillis()
+        try {
+            connectivity.registerNetworkCallback(request, cb)
+            networkCallback = cb
+        } catch (e: Exception) {
+            Log.w(TAG, "registerNetworkCallback", e)
+        }
     }
 
     private fun resolve(info: NsdServiceInfo) {
@@ -142,6 +229,7 @@ class Discovery(context: Context) {
             callbacks.remove(name)?.let { try { nsd.unregisterServiceInfoCallback(it as NsdManager.ServiceInfoCallback) } catch (_: Exception) {} }
         }
         if (found.remove(name) != null) publish()
+        if (found.isEmpty()) scheduleRetry()
     }
 
     private fun publish() {
@@ -150,6 +238,8 @@ class Discovery(context: Context) {
 
     companion object {
         const val SERVICE_TYPE = "_sill._tcp"
+        /** How long an empty browse runs before it starts over: soon at first, then every 20 s. */
+        private val RETRY_MS = longArrayOf(4_000, 6_000, 10_000, 15_000, 20_000)
         private const val TAG = "Discovery"
     }
 }

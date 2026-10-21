@@ -29,6 +29,11 @@ data class SavedMac(
     val bonjourName: String? = null,
     /** host:port that last connected from afar. */
     val lastWorked: String? = null,
+    /**
+     * host:port of the Mac's door on the home network, as Bonjour last listed it: dialed directly
+     * when Bonjour doesn't list the Mac. Its port changes whenever Sill starts again.
+     */
+    val homeAddress: String? = null,
     val pairedAt: Long = System.currentTimeMillis(),
     val lastConnectedAt: Long? = null,
     /** The Mac removed this device ("removed" goodbye): it must pair again. */
