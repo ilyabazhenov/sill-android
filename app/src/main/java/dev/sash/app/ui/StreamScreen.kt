@@ -277,7 +277,11 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                         // Under the keyboard the trackpad can't be used, and its top edge would peek
                         // out above it: the same room stays, empty, so nothing above moves.
                         if (keyboardUp) Spacer(Modifier.weight(1f).fillMaxWidth())
-                        else Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
+                        else {
+                            Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 8.dp))
+                            // The trackpad needs only so much height; the rest holds the shortcuts used most.
+                            ShortcutRow(c, latch, Modifier.fillMaxWidth().padding(8.dp))
+                        }
                         if (barAt == BarPosition.BOTTOM && !keyboardUp) bar()
                     }
                     if (keyboardUp) {
@@ -861,6 +865,43 @@ private fun KeyRow(c: Controller, latch: ModifierLatch, latched: Long, modifier:
         cap("↓") { tap(HidKeys.DOWN) }
         cap("↑") { tap(HidKeys.UP) }
         cap("→") { tap(HidKeys.RIGHT) }
+    }
+}
+
+/**
+ * A tap each: ⌘⇥, Mission Control, Spotlight, ⌘C, ⌘V, ⌘Z, ⌘W. Any latched modifier joins in.
+ * Mission Control goes as the three-finger swipe up: a typed ⌃↑ lacks the fn flag a real
+ * keyboard's arrows carry, so macOS hands it to the app in front instead. It shows only where the
+ * Mac takes gestures.
+ */
+@Composable
+private fun ShortcutRow(c: Controller, latch: ModifierLatch, modifier: Modifier) {
+    val windows by c.windows.collectAsState()
+    val gestures by c.gesturesOn.collectAsState()
+    val cmd = Modifiers.COMMAND
+    fun chord(usage: Int): () -> Unit = { c.chord(usage, cmd or latch.take()) }
+    val list = listOfNotNull(
+        Triple("⌘⇥", R.string.sc_switch, chord(HidKeys.TAB)),
+        if (gestures && (windows?.gestures ?: 0) >= 1) Triple("⌃↑", R.string.sc_mission_control, { c.gesture(dev.sash.protocol.TrackpadGesture.SWIPE_UP, 3) }) else null,
+        Triple("⌘␣", R.string.sc_spotlight, chord(HidKeys.SPACE)),
+        Triple("⌘C", R.string.sc_copy, chord(0x06)),
+        Triple("⌘V", R.string.sc_paste, chord(0x19)),
+        Triple("⌘Z", R.string.sc_undo, chord(0x1D)),
+        Triple("⌘W", R.string.sc_close, chord(0x1A)),
+    )
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        list.forEach { (keys, name, action) ->
+            val label = stringResource(name)
+            Column(
+                Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(12.dp)).background(ChipColor)
+                    .clickable(onClickLabel = label, onClick = action),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(keys, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text(label, color = InkDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 

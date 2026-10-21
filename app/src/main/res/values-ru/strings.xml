@@ -128,6 +128,13 @@
     <string name="desktop">Рабочий стол</string>
     <string name="settings">Настройки</string>
     <string name="more">Ещё</string>
+    <string name="sc_switch">Прошлое</string>
+    <string name="sc_mission_control">Все окна</string>
+    <string name="sc_spotlight">Поиск</string>
+    <string name="sc_copy">Копировать</string>
+    <string name="sc_paste">Вставить</string>
+    <string name="sc_undo">Отменить</string>
+    <string name="sc_close">Закрыть</string>
     <string name="windows_count">Окон: %1$d</string>
     <string name="reconnecting">Переподключение…</string>
     <string name="no_picture">%1$s не присылает картинку: скорее всего, его экран выключен или заблокирован. Разбудите Mac или не давайте экрану гаснуть, пока пользуетесь приложением. Картинка вернётся сама.</string>
