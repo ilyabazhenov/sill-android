@@ -77,6 +77,7 @@ import androidx.compose.material.icons.filled.DesktopMac
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mouse
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TouchApp
@@ -151,8 +152,6 @@ private val Accent = Color(0xFF4C8DFF)
 /** Chips over the picture: the zoom, the bar's handle. */
 private val Glass = Color(0xE6111317)
 private val BarHeight = 64.dp
-/** The window strip's own row on a tall screen. */
-private val StripHeight = 64.dp
 /** The key row's height: its keys and the padding around them. */
 private val KeyRowHeight = 48.dp
 /** How long the bar over a sideways picture stays after it was last touched. */
@@ -236,8 +235,8 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                     // place, sitting on the keyboard, and the window strip and the trackpad step aside.
                     // The keyboard goes away by its own key, Back, or a swipe.
                     if (!keyboardUp) {
-                        ButtonRow(c, keyboardUp, onKeyboard = { keyboardUp = !keyboardUp }, onSheet = { sheet = it }, scale = scale, onScale = { scale = it })
-                        WindowStrip(c, Modifier.fillMaxWidth().height(64.dp))
+                        // One row: the windows (the desktop first, all apps last), then Menus, Keyboard, More.
+                        TopBar(c, Modifier, keyboardUp, { keyboardUp = !keyboardUp }, { sheet = it }, scale, { scale = it })
                     } else {
                         Spacer(Modifier.weight(1f))
                     }
@@ -252,13 +251,8 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                 // there), and a bar from the middle or the bottom rides on the keyboard. The picture
                 // keeps its room and is lifted only if the keyboard, or the bar on it, reaches it.
                 val sides = WindowInsets.systemBars.union(WindowInsets.displayCutout)
-                // The buttons in one row and the window strip in its own row under them, the full
-                // width: many more windows show than beside the buttons.
                 val bar: @Composable () -> Unit = {
-                    Column {
-                        TopBar(c, Modifier, keyboardUp, { keyboardUp = !keyboardUp }, { sheet = it }, scale, { scale = it }, strip = false)
-                        WindowStrip(c, Modifier.fillMaxWidth().height(StripHeight))
-                    }
+                    TopBar(c, Modifier, keyboardUp, { keyboardUp = !keyboardUp }, { sheet = it }, scale, { scale = it })
                 }
                 val barTop = barAt == BarPosition.TOP
                 Box(Modifier.fillMaxSize()) {
@@ -266,7 +260,7 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                         // With the keyboard up the picture may be lifted into the room above it: the
                         // bar and the key row there are drawn after it (below), over it, and keep
                         // their room here.
-                        if (barTop) { if (keyboardUp) Spacer(Modifier.height(BarHeight + StripHeight)) else bar() }
+                        if (barTop) { if (keyboardUp) Spacer(Modifier.height(BarHeight)) else bar() }
                         if (keyboardUp) Spacer(Modifier.height(KeyRowHeight))
                         Box(Modifier.fillMaxWidth().aspectRatio(deskAspect)) {
                             VideoPane(
@@ -600,32 +594,7 @@ private fun MenusButton(c: Controller, onOpen: () -> Unit) {
     BarButton(Icons.Default.Menu, stringResource(R.string.menus_of, menus.app ?: stringResource(R.string.the_app)), onClick = onOpen)
 }
 
-/** Aa: how large the Mac's text renders here. Off leaves the Mac's windows their own size. */
-@Composable
-private fun ScaleButton(scale: Double?, onMenu: (Boolean) -> Unit = {}, onScale: (Double?) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    MenuOpen(open, onMenu)
-    Box {
-        Box(
-            Modifier.padding(horizontal = 2.dp).size(44.dp).clip(RoundedCornerShape(12.dp))
-                .background(if (scale != null) Accent.copy(alpha = 0.18f) else Color.Transparent)
-                .combinedClickable { open = true },
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Default.TextFields, stringResource(R.string.text_size), Modifier.size(22.dp), tint = if (scale != null) Accent else Ink) }
-        DropdownMenu(open, { open = false }) {
-            DropdownMenuItem({ Text(stringResource(R.string.leave_windows)) }, onClick = { onScale(null); open = false })
-            listOf(0.5, 0.75, 1.0, 1.25, 1.5).forEach { s ->
-                DropdownMenuItem(
-                    { Text("${s}× ${if (s == 1.0) stringResource(R.string.fit_window) else ""}") },
-                    onClick = { onScale(s); open = false },
-                    trailingIcon = { if (scale == s) Text("✓") },
-                )
-            }
-        }
-    }
-}
-
-/** The bar across a wide screen's top: Apps, the window strip, Menus, Aa, trackpad mode, Keyboard, Desktop, Settings. */
+/** The bar across a wide screen's top: the window strip (the desktop first, all apps last), Menus, Keyboard and More. */
 @Composable
 private fun TopBar(
     c: Controller,
@@ -636,56 +605,25 @@ private fun TopBar(
     scale: Double?,
     onScale: (Double?) -> Unit,
     onMenu: (Boolean) -> Unit = {},
-    /** The window strip between the buttons; without it, the buttons spread across the row. */
-    strip: Boolean = true,
 ) {
-    val windows by c.windows.collectAsState()
-    val trackpadMode by c.trackpadMode.collectAsState()
     Row(
         Modifier.fillMaxWidth().background(BarColor).then(modifier).height(BarHeight).padding(horizontal = 8.dp),
-        horizontalArrangement = if (strip) Arrangement.Start else Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BarButton(Icons.Default.Apps, stringResource(R.string.apps)) { onSheet(Sheet.APPS) }
-        if (strip) WindowStrip(c, Modifier.weight(1f).fillMaxHeight(), onMenu)
+        WindowStrip(c, Modifier.weight(1f).fillMaxHeight(), onSheet, onMenu)
         MenusButton(c) { onSheet(Sheet.MENUS) }
-        ScaleButton(scale, onMenu, onScale)
-        BarButton(Icons.Default.Mouse, if (trackpadMode) stringResource(R.string.trackpad_on) else stringResource(R.string.trackpad_off), lit = trackpadMode) { c.setTrackpadMode(!trackpadMode) }
         BarButton(Icons.Default.Keyboard, stringResource(R.string.keyboard), lit = keyboardUp, onClick = onKeyboard)
-        BarButton(Icons.Default.DesktopMac, stringResource(R.string.desktop), lit = windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
-        BarButton(Icons.Default.Settings, stringResource(R.string.settings)) { onSheet(Sheet.SETTINGS) }
+        MoreButton(c, scale, onScale, onSheet, onMenu)
     }
 }
 
-/** Upright: Apps, Aa, Keyboard, Desktop, Menus, Settings across one row. */
-@Composable
-private fun ButtonRow(
-    c: Controller,
-    keyboardUp: Boolean,
-    onKeyboard: () -> Unit,
-    onSheet: (Sheet) -> Unit,
-    scale: Double?,
-    onScale: (Double?) -> Unit,
-) {
-    val windows by c.windows.collectAsState()
-    Row(
-        Modifier.fillMaxWidth().background(BarColor).padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        BarButton(Icons.Default.Apps, stringResource(R.string.apps)) { onSheet(Sheet.APPS) }
-        ScaleButton(scale, onScale = onScale)
-        BarButton(Icons.Default.Keyboard, stringResource(R.string.keyboard), lit = keyboardUp, onClick = onKeyboard)
-        BarButton(Icons.Default.DesktopMac, stringResource(R.string.desktop), lit = windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
-        MenusButton(c) { onSheet(Sheet.MENUS) }
-        BarButton(Icons.Default.Settings, stringResource(R.string.settings)) { onSheet(Sheet.SETTINGS) }
-    }
-}
-
-/** Live thumbnails of the Mac's windows. Tap to stream one; hold for its traffic lights. */
+/**
+ * The desktop first, then live thumbnails of the Mac's windows, then All apps. Tap a thumbnail to
+ * stream it; hold it for its traffic lights.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WindowStrip(c: Controller, modifier: Modifier, onMenu: (Boolean) -> Unit = {}) {
+private fun WindowStrip(c: Controller, modifier: Modifier, onSheet: (Sheet) -> Unit, onMenu: (Boolean) -> Unit = {}) {
     val windows by c.windows.collectAsState()
     val thumbs by c.thumbnails.collectAsState()
     val icons by c.icons.collectAsState()
@@ -697,8 +635,72 @@ private fun WindowStrip(c: Controller, modifier: Modifier, onMenu: (Boolean) -> 
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        item(key = "desktop") {
+            StripTile(Icons.Default.DesktopMac, stringResource(R.string.desktop), windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
+        }
         items(list, key = { it.id }) { w ->
             WindowThumb(c, w, thumbs[w.id], icons[w.bundleID], w.id == active, onMenu)
+        }
+        item(key = "apps") {
+            StripTile(Icons.Default.Apps, stringResource(R.string.apps), false) { onSheet(Sheet.APPS) }
+        }
+    }
+}
+
+/** A tile the size of a window's thumbnail with an icon and its name: the desktop, or all apps. */
+@Composable
+private fun StripTile(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.height(50.dp).width(80.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (active) Accent.copy(alpha = 0.18f) else ChipColor)
+            .border(if (active) 2.dp else 1.dp, if (active) Accent else Hairline, RoundedCornerShape(10.dp))
+            .clickable(onClickLabel = label, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, Modifier.size(20.dp), tint = if (active) Accent else Ink)
+        Text(label, color = if (active) Accent else InkDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * More: the size of the Mac's text (Aa), the picture as a trackpad, and the settings, in one menu.
+ */
+@Composable
+private fun MoreButton(c: Controller, scale: Double?, onScale: (Double?) -> Unit, onSheet: (Sheet) -> Unit, onMenu: (Boolean) -> Unit = {}) {
+    var open by remember { mutableStateOf(false) }
+    MenuOpen(open, onMenu)
+    val trackpadMode by c.trackpadMode.collectAsState()
+    Box {
+        BarButton(Icons.Default.MoreHoriz, stringResource(R.string.more), lit = open) { open = true }
+        DropdownMenu(open, { open = false }) {
+            Text(
+                stringResource(R.string.text_size), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            DropdownMenuItem(
+                { Text(stringResource(R.string.leave_windows)) }, onClick = { onScale(null); open = false },
+                trailingIcon = { if (scale == null) Text("✓") },
+            )
+            listOf(0.5, 0.75, 1.0, 1.25, 1.5).forEach { sz ->
+                DropdownMenuItem(
+                    { Text("${sz}× ${if (sz == 1.0) stringResource(R.string.fit_window) else ""}") },
+                    onClick = { onScale(sz); open = false },
+                    trailingIcon = { if (scale == sz) Text("✓") },
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                { Text(stringResource(R.string.trackpad_mode)) },
+                onClick = { c.setTrackpadMode(!trackpadMode); open = false },
+                leadingIcon = { Icon(Icons.Default.Mouse, null) },
+                trailingIcon = { if (trackpadMode) Text("✓") },
+            )
+            DropdownMenuItem(
+                { Text(stringResource(R.string.settings)) },
+                onClick = { open = false; onSheet(Sheet.SETTINGS) },
+                leadingIcon = { Icon(Icons.Default.Settings, null) },
+            )
         }
     }
 }

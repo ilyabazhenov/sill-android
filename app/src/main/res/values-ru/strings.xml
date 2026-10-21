@@ -127,6 +127,7 @@
     <string name="keyboard">Клавиатура</string>
     <string name="desktop">Рабочий стол</string>
     <string name="settings">Настройки</string>
+    <string name="more">Ещё</string>
     <string name="reconnecting">Переподключение…</string>
     <string name="no_picture">%1$s не присылает картинку: скорее всего, его экран выключен или заблокирован. Разбудите Mac или не давайте экрану гаснуть, пока пользуетесь приложением. Картинка вернётся сама.</string>
     <string name="try_again">Повторить</string>

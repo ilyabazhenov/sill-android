@@ -129,6 +129,7 @@
     <string name="keyboard">Keyboard</string>
     <string name="desktop">Desktop</string>
     <string name="settings">Settings</string>
+    <string name="more">More</string>
     <string name="reconnecting">Reconnecting…</string>
     <string name="no_picture">No picture from %1$s: its display is probably off or locked. Wake it, or keep the display on while you use this app. The picture comes back by itself.</string>
     <string name="try_again">Try again</string>
