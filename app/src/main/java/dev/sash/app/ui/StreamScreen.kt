@@ -151,6 +151,8 @@ private val Accent = Color(0xFF4C8DFF)
 /** Chips over the picture: the zoom, the bar's handle. */
 private val Glass = Color(0xE6111317)
 private val BarHeight = 64.dp
+/** The window strip's own row on a tall screen. */
+private val StripHeight = 64.dp
 /** The key row's height: its keys and the padding around them. */
 private val KeyRowHeight = 48.dp
 /** How long the bar over a sideways picture stays after it was last touched. */
@@ -250,8 +252,13 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                 // there), and a bar from the middle or the bottom rides on the keyboard. The picture
                 // keeps its room and is lifted only if the keyboard, or the bar on it, reaches it.
                 val sides = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+                // The buttons in one row and the window strip in its own row under them, the full
+                // width: many more windows show than beside the buttons.
                 val bar: @Composable () -> Unit = {
-                    TopBar(c, Modifier, keyboardUp, { keyboardUp = !keyboardUp }, { sheet = it }, scale, { scale = it })
+                    Column {
+                        TopBar(c, Modifier, keyboardUp, { keyboardUp = !keyboardUp }, { sheet = it }, scale, { scale = it }, strip = false)
+                        WindowStrip(c, Modifier.fillMaxWidth().height(StripHeight))
+                    }
                 }
                 val barTop = barAt == BarPosition.TOP
                 Box(Modifier.fillMaxSize()) {
@@ -259,7 +266,7 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                         // With the keyboard up the picture may be lifted into the room above it: the
                         // bar and the key row there are drawn after it (below), over it, and keep
                         // their room here.
-                        if (barTop) { if (keyboardUp) Spacer(Modifier.height(BarHeight)) else bar() }
+                        if (barTop) { if (keyboardUp) Spacer(Modifier.height(BarHeight + StripHeight)) else bar() }
                         if (keyboardUp) Spacer(Modifier.height(KeyRowHeight))
                         Box(Modifier.fillMaxWidth().aspectRatio(deskAspect)) {
                             VideoPane(
@@ -629,15 +636,18 @@ private fun TopBar(
     scale: Double?,
     onScale: (Double?) -> Unit,
     onMenu: (Boolean) -> Unit = {},
+    /** The window strip between the buttons; without it, the buttons spread across the row. */
+    strip: Boolean = true,
 ) {
     val windows by c.windows.collectAsState()
     val trackpadMode by c.trackpadMode.collectAsState()
     Row(
         Modifier.fillMaxWidth().background(BarColor).then(modifier).height(BarHeight).padding(horizontal = 8.dp),
+        horizontalArrangement = if (strip) Arrangement.Start else Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BarButton(Icons.Default.Apps, stringResource(R.string.apps)) { onSheet(Sheet.APPS) }
-        WindowStrip(c, Modifier.weight(1f).fillMaxHeight(), onMenu)
+        if (strip) WindowStrip(c, Modifier.weight(1f).fillMaxHeight(), onMenu)
         MenusButton(c) { onSheet(Sheet.MENUS) }
         ScaleButton(scale, onMenu, onScale)
         BarButton(Icons.Default.Mouse, if (trackpadMode) stringResource(R.string.trackpad_on) else stringResource(R.string.trackpad_off), lit = trackpadMode) { c.setTrackpadMode(!trackpadMode) }
