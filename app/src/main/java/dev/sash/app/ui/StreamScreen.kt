@@ -79,6 +79,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -140,8 +141,15 @@ import dev.sash.protocol.WindowCommand
 import dev.sash.protocol.WindowInfo
 import kotlin.math.roundToInt
 
-private val BarColor = Color(0xFF15171C)
-private val ChipColor = Color(0xFF262A33)
+private val BarColor = Color(0xFF111317)
+private val ChipColor = Color(0xFF22252D)
+/** A hairline between the bar's parts and around the trackpad. */
+private val Hairline = Color(0xFF262A32)
+private val Ink = Color(0xFFE7E9EE)
+private val InkDim = Color(0xFF8A909B)
+private val Accent = Color(0xFF4C8DFF)
+/** Chips over the picture: the zoom, the bar's handle. */
+private val Glass = Color(0xE6111317)
 private val BarHeight = 64.dp
 /** The key row's height: its keys and the padding around them. */
 private val KeyRowHeight = 48.dp
@@ -548,11 +556,11 @@ private fun StatsLine(c: Controller, modifier: Modifier) {
 @Composable
 private fun BarButton(icon: ImageVector, label: String, lit: Boolean = false, onClick: () -> Unit) {
     Box(
-        Modifier.padding(horizontal = 3.dp).size(46.dp).clip(RoundedCornerShape(12.dp))
-            .background(if (lit) MaterialTheme.colorScheme.primary else ChipColor)
+        Modifier.padding(horizontal = 2.dp).size(44.dp).clip(RoundedCornerShape(12.dp))
+            .background(if (lit) Accent.copy(alpha = 0.18f) else Color.Transparent)
             .combinedClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, label, tint = Color.White) }
+    ) { Icon(icon, label, Modifier.size(22.dp), tint = if (lit) Accent else Ink) }
 }
 
 @Composable
@@ -569,11 +577,11 @@ private fun ScaleButton(scale: Double?, onMenu: (Boolean) -> Unit = {}, onScale:
     MenuOpen(open, onMenu)
     Box {
         Box(
-            Modifier.padding(horizontal = 3.dp).size(46.dp).clip(RoundedCornerShape(12.dp))
-                .background(if (scale != null) MaterialTheme.colorScheme.primary else ChipColor)
+            Modifier.padding(horizontal = 2.dp).size(44.dp).clip(RoundedCornerShape(12.dp))
+                .background(if (scale != null) Accent.copy(alpha = 0.18f) else Color.Transparent)
                 .combinedClickable { open = true },
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Default.TextFields, stringResource(R.string.text_size), tint = Color.White) }
+        ) { Icon(Icons.Default.TextFields, stringResource(R.string.text_size), Modifier.size(22.dp), tint = if (scale != null) Accent else Ink) }
         DropdownMenu(open, { open = false }) {
             DropdownMenuItem({ Text(stringResource(R.string.leave_windows)) }, onClick = { onScale(null); open = false })
             listOf(0.5, 0.75, 1.0, 1.25, 1.5).forEach { s ->
@@ -652,8 +660,8 @@ private fun WindowStrip(c: Controller, modifier: Modifier, onMenu: (Boolean) -> 
     val list = remember(windows?.windows, appOrder) { orderedWindows(windows?.windows ?: emptyList(), appOrder) }
     val active = (windows?.active as? StreamSource.Window)?.id
     LazyRow(
-        modifier.background(BarColor).padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier.background(BarColor).padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         items(list, key = { it.id }) { w ->
@@ -669,17 +677,22 @@ private fun WindowThumb(c: Controller, w: WindowInfo, thumb: ImageBitmap?, icon:
     MenuOpen(menu, onMenu)
     val view = LocalView.current
     Box(
-        Modifier.height(50.dp).width(78.dp).clip(RoundedCornerShape(8.dp))
+        Modifier.height(50.dp).width(80.dp).clip(RoundedCornerShape(10.dp))
             .background(ChipColor)
-            .border(if (active) 2.dp else 0.dp, if (active) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(8.dp))
+            .border(if (active) 2.dp else 1.dp, if (active) Accent else Hairline, RoundedCornerShape(10.dp))
             .combinedClickable(
                 onClick = { c.select(StreamSource.Window(w.id)) },
                 onLongClick = { view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); menu = true },
             ),
     ) {
         if (thumb != null) Image(thumb, w.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Text(w.appName, Modifier.align(Alignment.Center).padding(4.dp), color = Color.White, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (icon != null) Image(icon, null, Modifier.align(Alignment.BottomEnd).padding(2.dp).size(18.dp))
+        else Text(w.appName, Modifier.align(Alignment.Center).padding(4.dp), color = InkDim, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (icon != null) {
+            Box(
+                Modifier.align(Alignment.BottomEnd).padding(3.dp).size(22.dp).background(Glass, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { Image(icon, null, Modifier.size(17.dp)) }
+        }
         DropdownMenu(menu, { menu = false }) {
             Text("${w.appName} — ${w.title}".take(60), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             DropdownMenuItem({ Text(stringResource(R.string.window_close)) }, onClick = { c.windowCommand(w.id, WindowCommand.CLOSE); menu = false }, leadingIcon = { Dot(Color(0xFFFF5F57)) })
@@ -706,10 +719,10 @@ private fun BarHandle(modifier: Modifier, onShow: () -> Unit) {
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
-            Modifier.size(width = 52.dp, height = 22.dp)
-                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(bottomStart = 11.dp, bottomEnd = 11.dp)),
+            Modifier.size(width = 56.dp, height = 24.dp)
+                .background(Glass, RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.show_bar), Modifier.size(20.dp), tint = Color.White.copy(alpha = 0.85f)) }
+        ) { Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.show_bar), Modifier.size(20.dp), tint = Ink) }
     }
 }
 
@@ -717,14 +730,14 @@ private fun BarHandle(modifier: Modifier, onShow: () -> Unit) {
 @Composable
 private fun ZoomChip(scale: Float, modifier: Modifier, onReset: () -> Unit) {
     Row(
-        modifier.clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.6f))
+        modifier.clip(RoundedCornerShape(18.dp)).background(Glass).border(1.dp, Hairline, RoundedCornerShape(18.dp))
             .clickable(onClickLabel = stringResource(R.string.fit_picture), onClick = onReset)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("${(scale * 10).roundToInt() / 10.0}×", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.width(6.dp))
-        Icon(Icons.Default.ZoomOutMap, null, Modifier.size(16.dp), tint = Color.White)
+        Text("${(scale * 10).roundToInt() / 10.0}×", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.width(8.dp))
+        Icon(Icons.Default.ZoomOutMap, null, Modifier.size(16.dp), tint = Ink)
     }
 }
 
@@ -735,24 +748,24 @@ private fun Dot(color: Color) = Box(Modifier.size(12.dp).background(color, Round
 @Composable
 private fun KeyRow(c: Controller, latch: ModifierLatch, latched: Long, modifier: Modifier) {
     Row(
-        modifier.background(BarColor).padding(horizontal = 4.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier.background(BarColor).padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         @Composable
-        fun cap(label: String, lit: Boolean = false, weight: Float = 1f, onClick: () -> Unit) = Box(
-            Modifier.weight(weight).height(40.dp).clip(RoundedCornerShape(8.dp))
-                .background(if (lit) MaterialTheme.colorScheme.primary else ChipColor)
+        fun cap(label: String, lit: Boolean = false, weight: Float = 1f, size: Int = 16, onClick: () -> Unit) = Box(
+            Modifier.weight(weight).height(40.dp).clip(RoundedCornerShape(10.dp))
+                .background(if (lit) Accent else ChipColor)
                 .combinedClickable(onClick = onClick),
             contentAlignment = Alignment.Center,
-        ) { Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
+        ) { Text(label, color = if (lit) Color.White else Ink, fontSize = size.sp, fontWeight = FontWeight.Medium) }
 
         fun tap(usage: Int) = c.chord(usage, latch.take())
-        cap("esc") { tap(HidKeys.ESCAPE) }
-        cap("tab") { tap(HidKeys.TAB) }
-        cap("ctrl", latched and Modifiers.CONTROL != 0L) { latch.toggle(Modifiers.CONTROL) }
-        cap("opt", latched and Modifiers.OPTION != 0L) { latch.toggle(Modifiers.OPTION) }
-        cap("cmd", latched and Modifiers.COMMAND != 0L) { latch.toggle(Modifiers.COMMAND) }
-        cap("shift", latched and Modifiers.SHIFT != 0L) { latch.toggle(Modifiers.SHIFT) }
+        cap("esc", weight = 1.2f, size = 13) { tap(HidKeys.ESCAPE) }
+        cap("⇥") { tap(HidKeys.TAB) }
+        cap("⌃", latched and Modifiers.CONTROL != 0L) { latch.toggle(Modifiers.CONTROL) }
+        cap("⌥", latched and Modifiers.OPTION != 0L) { latch.toggle(Modifiers.OPTION) }
+        cap("⌘", latched and Modifiers.COMMAND != 0L) { latch.toggle(Modifiers.COMMAND) }
+        cap("⇧", latched and Modifiers.SHIFT != 0L) { latch.toggle(Modifiers.SHIFT) }
         cap("←") { tap(HidKeys.LEFT) }
         cap("↓") { tap(HidKeys.DOWN) }
         cap("↑") { tap(HidKeys.UP) }
@@ -773,12 +786,16 @@ private fun Trackpad(
     // The pad starts from wherever the Mac's pointer last was.
     LaunchedEffect(macPointer) { macPointer?.let { cursor.value = it } }
     Box(
-        modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF1E2128))
+        modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xFF16181D)).border(1.dp, Hairline, RoundedCornerShape(20.dp))
             .onSizeChanged { size = it }
             .trackpadInput(c, { size.width.toFloat().coerceAtLeast(1f) to (size.width / 1.6f).coerceAtLeast(1f) }, cursor, latch, scope),
         contentAlignment = Alignment.Center,
     ) {
-        Text(stringResource(R.string.trackpad), color = Color.White.copy(alpha = 0.25f), fontSize = 13.sp)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.TouchApp, null, Modifier.size(26.dp), tint = InkDim.copy(alpha = 0.6f))
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.trackpad), color = InkDim, fontSize = 13.sp)
+        }
     }
 }
 
