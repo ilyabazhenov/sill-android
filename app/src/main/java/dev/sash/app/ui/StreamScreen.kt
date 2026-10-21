@@ -647,19 +647,17 @@ private fun WindowStrip(c: Controller, modifier: Modifier, onSheet: (Sheet) -> U
     }
 }
 
-/** A tile the size of a window's thumbnail with an icon and its name: the desktop, or all apps. */
+/** A tile the size of a window's thumbnail with just an icon (a name won't fit in every language): the desktop, or all apps. */
 @Composable
 private fun StripTile(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit) {
-    Column(
+    Box(
         Modifier.height(50.dp).width(80.dp).clip(RoundedCornerShape(10.dp))
             .background(if (active) Accent.copy(alpha = 0.18f) else ChipColor)
             .border(if (active) 2.dp else 1.dp, if (active) Accent else Hairline, RoundedCornerShape(10.dp))
             .clickable(onClickLabel = label, onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, Modifier.size(20.dp), tint = if (active) Accent else Ink)
-        Text(label, color = if (active) Accent else InkDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(icon, label, Modifier.size(26.dp), tint = if (active) Accent else Ink)
     }
 }
 
