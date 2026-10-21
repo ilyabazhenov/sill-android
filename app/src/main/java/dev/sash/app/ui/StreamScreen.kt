@@ -102,6 +102,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -630,8 +632,10 @@ private fun WindowStrip(c: Controller, modifier: Modifier, onSheet: (Sheet) -> U
     val appOrder by c.appOrder.collectAsState()
     val list = remember(windows?.windows, appOrder) { orderedWindows(windows?.windows ?: emptyList(), appOrder) }
     val active = (windows?.active as? StreamSource.Window)?.id
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     LazyRow(
-        modifier.background(BarColor).padding(horizontal = 8.dp),
+        modifier.background(BarColor).fadeEdges(listState.canScrollBackward, listState.canScrollForward).padding(horizontal = 8.dp),
+        state = listState,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -646,6 +650,26 @@ private fun WindowStrip(c: Controller, modifier: Modifier, onSheet: (Sheet) -> U
         }
     }
 }
+
+/**
+ * Soft edges on a strip that scrolls: the side with more beyond it fades out, rather than
+ * cutting a thumbnail off sharply.
+ */
+private fun Modifier.fadeEdges(start: Boolean, end: Boolean): Modifier = this
+    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val w = 28.dp.toPx().coerceAtMost(size.width / 3)
+        if (start) drawRect(
+            androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = w),
+            size = androidx.compose.ui.geometry.Size(w, size.height), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+        )
+        if (end) drawRect(
+            androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - w, endX = size.width),
+            topLeft = Offset(size.width - w, 0f), size = androidx.compose.ui.geometry.Size(w, size.height),
+            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+        )
+    }
 
 /** A tile the size of a window's thumbnail with just an icon (a name won't fit in every language): the desktop, or all apps. */
 @Composable
