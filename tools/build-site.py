@@ -182,6 +182,7 @@ html:not([lang="ru"]) .ru, html[lang="ru"] .en {{ display: none; }}
     <p>Затем поставьте <a href="https://getsill.app/download">Sill for Mac</a> на Mac и сопрягите их в одной Wi‑Fi сети. <a href="/ru/#start">По шагам</a></p>
   </div>
 </main>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{{"token": "3d34efb0e9bb47b089dd6f0ef24abeac"}}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
 """, encoding="utf-8")
