@@ -248,8 +248,11 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                 val barTop = barAt == BarPosition.TOP
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().windowInsetsPadding(sides)) {
-                        if (barTop) bar()
-                        if (keyboardUp) KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
+                        // With the keyboard up the picture may be lifted into the room above it: the
+                        // bar and the key row there are drawn after it (below), over it, and keep
+                        // their room here.
+                        if (barTop) { if (keyboardUp) Spacer(Modifier.height(BarHeight)) else bar() }
+                        if (keyboardUp) Spacer(Modifier.height(KeyRowHeight))
                         Box(Modifier.fillMaxWidth().aspectRatio(deskAspect)) {
                             VideoPane(
                                 c, latch, scope, scale, trackCursor.value, showStats.value,
@@ -259,10 +262,17 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                         }
                         if (barAt == BarPosition.MIDDLE && !keyboardUp) bar()
                         if (!keyboardUp) KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
-                        Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
+                        // Under the keyboard the trackpad can't be used, and its top edge would peek
+                        // out above it: the same room stays, empty, so nothing above moves.
+                        if (keyboardUp) Spacer(Modifier.weight(1f).fillMaxWidth())
+                        else Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
                         if (barAt == BarPosition.BOTTOM && !keyboardUp) bar()
                     }
                     if (keyboardUp) {
+                        Column(Modifier.fillMaxWidth().windowInsetsPadding(sides.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
+                            if (barTop) bar()
+                            KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
+                        }
                         val onKeyboard = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                             .onGloballyPositioned { imeTop = it.positionInWindow().y }

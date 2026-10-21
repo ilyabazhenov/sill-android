@@ -2,6 +2,15 @@ package dev.sash.app.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Laptop
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Button
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -92,21 +101,40 @@ fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
                 }
                 if (found.isEmpty()) {
                     item {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 12.dp)) {
-                            if (!browseFailed) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.size(12.dp))
-                            Text(
-                                if (browseFailed) stringResource(R.string.browse_failed) else stringResource(R.string.browsing),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        // Still nothing after a while: say what to check.
+                        var slow by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { kotlinx.coroutines.delay(10_000); slow = true }
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!browseFailed) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.size(12.dp))
+                                Text(
+                                    if (browseFailed) stringResource(R.string.browse_failed) else stringResource(R.string.browsing),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (slow && !browseFailed) {
+                                Spacer(Modifier.height(10.dp))
+                                Text(stringResource(R.string.browse_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
-                items(found, key = { "row:" + it.serviceName }) { row ->
+                val listed = found.sortedBy { r -> savedMacs.none { it.recognizes(r.tag) && !it.revoked } }
+                items(listed, key = { "row:" + it.serviceName }) { row ->
                     val mac = savedMacs.firstOrNull { it.recognizes(row.tag) && !it.revoked }
                     MacRow(
                         title = mac?.name ?: row.serviceName,
                         word = rowWord(row, mac),
+                        dot = when {
+                            row.door == HomeDoor.PLAIN -> Warn
+                            mac != null -> Ready
+                            else -> MaterialTheme.colorScheme.outline
+                        },
                         remote = false,
                         busy = phase == Phase.DIALING && controller.target.value?.name == (mac?.name ?: row.serviceName),
                         onClick = { controller.tap(row) },
@@ -116,9 +144,11 @@ fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
                 if (away.isNotEmpty()) {
                     item { Spacer(Modifier.height(12.dp)); SectionTitle(stringResource(R.string.section_away)) }
                     items(away, key = { "saved:" + it.macID }) { mac ->
+                        val reachable = mac.addresses.isNotEmpty() || mac.typedAddresses.isNotEmpty() || mac.lastWorked != null || mac.homeAddress != null
                         MacRow(
                             title = mac.name,
-                            word = stringResource(R.string.row_remote),
+                            word = stringResource(if (reachable) R.string.row_sub_away else R.string.row_sub_no_address),
+                            dot = if (reachable) MaterialTheme.colorScheme.primary else Warn,
                             remote = true,
                             busy = phase == Phase.DIALING && controller.target.value?.name == mac.name,
                             onClick = { controller.connectRemote(mac) },
@@ -129,31 +159,53 @@ fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
                 item {
                     status?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Outlined.Info, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.size(10.dp))
+                            Text(it, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                     Spacer(Modifier.height(20.dp))
-                    // Wraps the second button onto its own line on narrow screens (Fold cover display)
-                    // instead of squeezing its label into a hyphenated column.
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    Button(onClick = onScan, Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp)) {
+                        Icon(Icons.Default.QrCodeScanner, null); Spacer(Modifier.size(10.dp)); Text(stringResource(R.string.scan_pairing_code))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { addOpen = true }, Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     ) {
-                        FilledTonalButton(onClick = onScan) {
-                            Icon(Icons.Default.QrCodeScanner, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.scan_pairing_code))
-                        }
-                        OutlinedButton(onClick = { addOpen = true }) {
-                            Icon(Icons.Default.Add, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.add_mac_more), maxLines = 1)
-                        }
+                        Icon(Icons.Default.Add, null); Spacer(Modifier.size(10.dp)); Text(stringResource(R.string.add_mac_more), maxLines = 1)
                     }
                     Spacer(Modifier.height(24.dp))
-                    Text(
-                        stringResource(R.string.connect_help),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(stringResource(R.string.help_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        listOf(R.string.help_step1, R.string.help_step2, R.string.help_step3).forEachIndexed { i, step ->
+                            Row(verticalAlignment = Alignment.Top) {
+                                Box(
+                                    Modifier.size(22.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) { Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                                Spacer(Modifier.size(10.dp))
+                                Text(stringResource(step), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 1.dp))
+                            }
+                        }
+                        Text(stringResource(R.string.help_away), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     if (lock.available) {
-                        Spacer(Modifier.height(16.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Column(Modifier.weight(1f)) {
                                 Text(stringResource(R.string.lock_app), style = MaterialTheme.typography.bodyLarge)
                                 Text(
@@ -162,6 +214,7 @@ fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            Spacer(Modifier.size(12.dp))
                             Switch(lockOn, onCheckedChange = { lock.setEnabled(it) })
                         }
                     }
@@ -185,30 +238,43 @@ fun ConnectScreen(controller: Controller, lock: AppLock, onScan: () -> Unit) {
 
 @Composable
 private fun rowWord(row: FoundMac, mac: SavedMac?): String = when {
-    row.door == HomeDoor.PLAIN -> stringResource(R.string.row_not_encrypted)
-    mac != null -> stringResource(R.string.row_wifi)
-    else -> stringResource(R.string.row_not_paired)
+    row.door == HomeDoor.PLAIN -> stringResource(R.string.row_sub_plain)
+    mac != null -> stringResource(R.string.row_sub_ready)
+    else -> stringResource(R.string.row_sub_pair)
 }
 
 @Composable
 private fun SectionTitle(t: String) =
-    Text(t.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(t.uppercase(), Modifier.padding(start = 4.dp, bottom = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+/** The dot on a Mac's row: ready to connect, or something to see to. */
+private val Ready = Color(0xFF3DD68C)
+private val Warn = Color(0xFFF5B544)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MacRow(title: String, word: String, remote: Boolean, busy: Boolean, onClick: () -> Unit, onLong: () -> Unit) {
+private fun MacRow(title: String, word: String, dot: Color, remote: Boolean, busy: Boolean, onClick: () -> Unit, onLong: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
     Row(
-        Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+        Modifier.fillMaxWidth().clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .combinedClickable(onClick = onClick, onLongClick = onLong)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(if (remote) Icons.Default.Cloud else Icons.Default.Computer, null, tint = MaterialTheme.colorScheme.primary)
+        Box(
+            Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { Icon(if (remote) Icons.Default.Cloud else Icons.Default.Laptop, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary) }
         Spacer(Modifier.size(14.dp))
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(word, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+        }
+        Spacer(Modifier.size(10.dp))
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-        else Text(word, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        else Box(Modifier.size(10.dp).background(dot, CircleShape))
     }
 }
 

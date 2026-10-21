@@ -1,6 +1,5 @@
 package dev.sash.app.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -8,7 +7,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,15 +39,27 @@ import dev.sash.app.R
 import dev.sash.app.stream.Controller
 import dev.sash.app.stream.Phase
 
-private val Accent = Color(0xFF3A7BFF)
+private val Accent = Color(0xFF4C8DFF)
+
+/** One dark look for every screen, the same as the stream screen's bar and trackpad. */
+private val Scheme = darkColorScheme(
+    primary = Accent, onPrimary = Color.White,
+    primaryContainer = Color(0xFF1C2B47), onPrimaryContainer = Color(0xFFD6E3FF),
+    secondary = Accent, onSecondary = Color.White,
+    secondaryContainer = Color(0xFF1C2B47), onSecondaryContainer = Color(0xFFD6E3FF),
+    background = Color(0xFF0B0C0F), onBackground = Color(0xFFE7E9EE),
+    surface = Color(0xFF0B0C0F), onSurface = Color(0xFFE7E9EE),
+    surfaceVariant = Color(0xFF1B1E24), onSurfaceVariant = Color(0xFF8E949F),
+    surfaceContainerLowest = Color(0xFF08090B), surfaceContainerLow = Color(0xFF121418),
+    surfaceContainer = Color(0xFF16181D), surfaceContainerHigh = Color(0xFF1B1E24), surfaceContainerHighest = Color(0xFF23262E),
+    outline = Color(0xFF353A44), outlineVariant = Color(0xFF24272E),
+    error = Color(0xFFFF6B6B), onError = Color.White,
+    errorContainer = Color(0xFF3A1D1F), onErrorContainer = Color(0xFFFFB4AB),
+)
 
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    MaterialTheme(
-        colorScheme = if (dark) darkColorScheme(primary = Accent, secondary = Accent) else lightColorScheme(primary = Accent, secondary = Accent),
-        content = content,
-    )
+    MaterialTheme(colorScheme = Scheme, content = content)
 }
 
 @Composable
