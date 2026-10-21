@@ -705,12 +705,7 @@ private fun WindowThumb(c: Controller, w: WindowInfo, thumb: ImageBitmap?, icon:
     ) {
         if (thumb != null) Image(thumb, w.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Text(w.appName, Modifier.align(Alignment.Center).padding(4.dp), color = InkDim, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (icon != null) {
-            Box(
-                Modifier.align(Alignment.BottomEnd).padding(3.dp).size(22.dp).background(Glass, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) { Image(icon, null, Modifier.size(17.dp)) }
-        }
+        if (icon != null) Image(icon, null, Modifier.align(Alignment.BottomEnd).padding(3.dp).size(20.dp))
         DropdownMenu(menu, { menu = false }) {
             Text("${w.appName} — ${w.title}".take(60), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             DropdownMenuItem({ Text(stringResource(R.string.window_close)) }, onClick = { c.windowCommand(w.id, WindowCommand.CLOSE); menu = false }, leadingIcon = { Dot(Color(0xFFFF5F57)) })
