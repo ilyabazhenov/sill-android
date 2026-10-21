@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Source of site/og.png, the 1200×630 link preview. Render: tools/og/render.sh -->
+<!-- Source of site/og.png and, opened as og-image.html#en, site/og-en.png: the 1200×630 link previews. Render: tools/og/render.sh -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -27,7 +27,9 @@ h1 { margin: 44px 0 0; font-weight: 700; font-size: 84px; line-height: 1.04; let
 }
 p { margin: 36px 0 0; font-size: 30px; line-height: 1.35; color: #4A5468; }
 .art svg { width: 360px; height: 360px; border-radius: 80px; box-shadow: 0 40px 60px -30px rgba(17, 22, 32, .45); display: block; }
+html:not(.en) .en, html.en .ru { display: none; }
 </style>
+<script>if (location.hash === "#en") { document.documentElement.className = "en"; document.documentElement.lang = "en"; }</script>
 </head>
 <body>
   <div>
@@ -35,8 +37,10 @@ p { margin: 36px 0 0; font-size: 30px; line-height: 1.35; color: #4A5468; }
       <svg viewBox="0 0 108 108"><path fill="#1C1F26" d="M0,0h108v108h-108z"/><path fill="#3A7BFF" d="M26,28h56a6,6 0,0 1,6 6v34a6,6 0,0 1,-6 6h-56a6,6 0,0 1,-6 -6v-34a6,6 0,0 1,6 -6z"/><path fill="#D8E4FF" d="M24,38h60v30a4,4 0,0 1,-4 4h-52a4,4 0,0 1,-4 -4z"/><circle fill="#FF5F57" cx="29" cy="33" r="2"/><circle fill="#FEBC2E" cx="35" cy="33" r="2"/><circle fill="#28C840" cx="41" cy="33" r="2"/><path fill="#9AA3B5" d="M16,80h76v6h-76z"/></svg>
       Sash
     </div>
-    <h1><span class="chip">Окна</span> вашего Mac на&nbsp;Android</h1>
-    <p>Бесплатный клиент для Sill.<br>Открытый код, без аккаунта.</p>
+    <h1 class="ru"><span class="chip">Окна</span> вашего Mac на&nbsp;Android</h1>
+    <p class="ru">Бесплатный клиент для Sill.<br>Открытый код, без аккаунта.</p>
+    <h1 class="en">Your Mac’s <span class="chip">windows</span> on&nbsp;Android</h1>
+    <p class="en">A free client for Sill.<br>Open source, no account.</p>
   </div>
   <div class="art">
     <svg viewBox="0 0 108 108"><path fill="#1C1F26" d="M0,0h108v108h-108z"/><path fill="#3A7BFF" d="M26,28h56a6,6 0,0 1,6 6v34a6,6 0,0 1,-6 6h-56a6,6 0,0 1,-6 -6v-34a6,6 0,0 1,6 -6z"/><path fill="#D8E4FF" d="M24,38h60v30a4,4 0,0 1,-4 4h-52a4,4 0,0 1,-4 -4z"/><circle fill="#FF5F57" cx="29" cy="33" r="2"/><circle fill="#FEBC2E" cx="35" cy="33" r="2"/><circle fill="#28C840" cx="41" cy="33" r="2"/><path fill="#9AA3B5" d="M16,80h76v6h-76z"/></svg>

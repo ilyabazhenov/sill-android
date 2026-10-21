@@ -5,7 +5,7 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: [site/**, tools/stamp-release.py, .github/workflows/pages.yml]
+    paths: [site/**, tools/stamp-release.py, tools/build-site.py, .github/workflows/pages.yml]
   release:
     types: [published]
   workflow_dispatch:
@@ -51,9 +51,11 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: Build the Russian and English pages
+        run: python3 tools/build-site.py site _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
