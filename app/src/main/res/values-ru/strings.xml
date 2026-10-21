@@ -33,13 +33,8 @@
     <string name="browse_failed">Не удаётся искать Mac в этой сети. Проверьте Wi‑Fi.</string>
     <string name="browsing">Ищем Mac с открытым Sill…</string>
     <string name="section_away">Вне дома</string>
-    <string name="row_remote">Удалённо</string>
-    <string name="row_not_encrypted">Без шифрования</string>
-    <string name="row_wifi">Wi‑Fi</string>
-    <string name="row_not_paired">Нет пары</string>
     <string name="scan_pairing_code">Сканировать код сопряжения</string>
     <string name="add_mac_more">Добавить Mac…</string>
-    <string name="connect_help">На Mac откройте Sill, затем нажмите на Mac здесь. В первый раз Mac покажет код — отсканируйте или введите его. Вне дома включите Remote Access в настройках Sill и используйте VPN, например Tailscale, или пробросьте его порт на роутере.</string>
     <string name="row_sub_ready">Сопряжён · Wi‑Fi</string>
     <string name="row_sub_pair">Не сопряжён · нажмите, чтобы ввести код</string>
     <string name="row_sub_plain">Без шифрования · тестовый хост</string>
@@ -122,8 +117,6 @@
 
     <!-- Stream screen -->
     <string name="apps">Приложения</string>
-    <string name="trackpad_on">Трекпад: вкл.</string>
-    <string name="trackpad_off">Трекпад: выкл.</string>
     <string name="keyboard">Клавиатура</string>
     <string name="desktop">Рабочий стол</string>
     <string name="settings">Настройки</string>

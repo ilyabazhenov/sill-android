@@ -453,7 +453,8 @@ class Controller(private val context: Context) {
             }
         }
         val won = got ?: throw java.io.IOException(str(R.string.didnt_answer, mac.name))
-        saved.update(mac.macID) { it.copy(lastWorked = won.second) }
+        // The home door is kept on its own (homeAddress): as "worked last" it would be tried first from afar too.
+        if (won.second != mac.homeAddress) saved.update(mac.macID) { it.copy(lastWorked = won.second) }
         return won.first
     }
 

@@ -35,13 +35,8 @@
     <string name="browse_failed">Can’t look for Macs on this network. Check Wi‑Fi.</string>
     <string name="browsing">Looking for Macs with Sill open…</string>
     <string name="section_away">Away from home</string>
-    <string name="row_remote">Remote</string>
-    <string name="row_not_encrypted">Not encrypted</string>
-    <string name="row_wifi">Wi‑Fi</string>
-    <string name="row_not_paired">Not paired</string>
     <string name="scan_pairing_code">Scan Pairing Code</string>
     <string name="add_mac_more">Add a Mac…</string>
-    <string name="connect_help">On the Mac: open Sill, then tap the Mac here. The first time, the Mac shows a code to scan or type. Away from home, turn on Remote Access in Sill’s settings and use a VPN such as Tailscale, or forward its port on your router.</string>
     <string name="row_sub_ready">Paired · Wi‑Fi</string>
     <string name="row_sub_pair">Not paired · tap to enter its code</string>
     <string name="row_sub_plain">Not encrypted · test host</string>
@@ -124,8 +119,6 @@
 
     <!-- Stream screen -->
     <string name="apps">Apps</string>
-    <string name="trackpad_on">Trackpad: on</string>
-    <string name="trackpad_off">Trackpad: off</string>
     <string name="keyboard">Keyboard</string>
     <string name="desktop">Desktop</string>
     <string name="settings">Settings</string>

@@ -61,6 +61,8 @@ class Discovery(context: Context) {
     /** Between [start] and [stop]: the app wants Macs listed. */
     private var running = false
     private var retries = 0
+    /** Counts browses: a callback from one before the current one is late, and drops its result. */
+    private var generation = 0
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var watchingSince = 0L
 
@@ -86,11 +88,6 @@ class Discovery(context: Context) {
         networkCallback?.let { try { connectivity.unregisterNetworkCallback(it) } catch (_: Exception) {} }
         networkCallback = null
         halt()
-    }
-
-    /** A fresh browse: Android, like iOS, can leave a browser stale after a long background stay. */
-    fun restart() {
-        if (!running) start() else { retries = 0; browseAgain() }
     }
 
     private fun browse() {
@@ -133,7 +130,9 @@ class Discovery(context: Context) {
         }
         callbacks.clear()
         queue.clear()
-        resolving = false
+        // A resolve still running keeps [resolving] until it answers: the system resolver takes one
+        // at a time, and the next browse's resolve has to wait for it.
+        generation++
         found.clear()
         publish()
     }
@@ -181,12 +180,13 @@ class Discovery(context: Context) {
     private fun resolve(info: NsdServiceInfo) {
         if (Build.VERSION.SDK_INT >= 34) {
             if (callbacks.containsKey(info.serviceName)) return
+            val gen = generation
             val cb = object : NsdManager.ServiceInfoCallback {
                 override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {
-                    main.post { callbacks.remove(info.serviceName) }
+                    main.post { if (gen == generation) callbacks.remove(info.serviceName) }
                 }
-                override fun onServiceUpdated(si: NsdServiceInfo) = main.post { update(si, si.hostAddresses) }.let {}
-                override fun onServiceLost() = main.post { lost(info.serviceName) }.let {}
+                override fun onServiceUpdated(si: NsdServiceInfo) = main.post { if (gen == generation) update(si, si.hostAddresses) }.let {}
+                override fun onServiceLost() = main.post { if (gen == generation) lost(info.serviceName) }.let {}
                 override fun onServiceInfoCallbackUnregistered() {}
             }
             callbacks[info.serviceName] = cb
@@ -206,11 +206,13 @@ class Discovery(context: Context) {
         if (resolving) return
         val info = queue.removeFirstOrNull() ?: return
         resolving = true
+        val gen = generation
         nsd.resolveService(info, object : NsdManager.ResolveListener {
             override fun onResolveFailed(si: NsdServiceInfo, errorCode: Int) = main.post { resolving = false; next() }.let {}
             override fun onServiceResolved(si: NsdServiceInfo) = main.post {
                 resolving = false
-                update(si, listOfNotNull(si.host))
+                // From a browse since stopped: the resolver is free again, the result is stale.
+                if (gen == generation) update(si, listOfNotNull(si.host))
                 next()
             }.let {}
         })
