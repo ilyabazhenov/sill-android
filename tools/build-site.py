@@ -6,7 +6,8 @@ site/index.html holds both languages, every phrase as <span class="ru"> and
 want one language per URL, so this writes the English page to / and the Russian
 one to /ru/, each with only its own text, its own head (the data-en values of
 site/index.html), hreflang links between them, a link as the language switch and
-the app's structured data. Then robots.txt and sitemap.xml.
+the app's structured data. Then /get/, where the page's QR code points: it starts
+the latest APK's download on the phone. And robots.txt and sitemap.xml.
 
 Usage: build-site.py site _site   (after stamp-release.py, so the version is current)
 """
@@ -87,11 +88,13 @@ def switch_for(page, lang):
     return page
 
 
+VERSION = re.search(r'data-release="version">([^<]*)<', source).group(1)
+APK = re.search(r'<a\b[^>]*\bdata-release="href"[^>]*\bhref="([^"]*)"', source).group(1)
+
+
 def structured_data(page, lang):
     def meta(name):
         return html.unescape(re.search(rf'<meta (?:name|property)="{name}" content="([^"]*)"', page).group(1))
-    version = re.search(r'data-release="version">([^<]*)<', page).group(1)
-    apk = re.search(r'<a\b[^>]*\bdata-release="href"[^>]*\bhref="([^"]*)"', page).group(1)
     data = {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
@@ -102,8 +105,8 @@ def structured_data(page, lang):
         "image": meta("og:image"),
         "applicationCategory": "UtilitiesApplication",
         "operatingSystem": "Android",
-        "softwareVersion": version,
-        "downloadUrl": apk,
+        "softwareVersion": VERSION,
+        "downloadUrl": APK,
         "license": "https://www.gnu.org/licenses/gpl-3.0.html",
         "isAccessibleForFree": True,
         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
@@ -137,6 +140,51 @@ def build(lang):
 
 for lang in PAGES:
     build(lang)
+
+# The QR code's target: the download starts by itself, the page says what comes next.
+(out / "get").mkdir(exist_ok=True)
+(out / "get" / "index.html").write_text(f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="1; url={APK}">
+<title>Download Sash {VERSION}</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<style>
+:root {{ color-scheme: light dark; --bg: #E3E9F2; --ink: #111620; --muted: #4A5468; --signal: #2B62EE; }}
+@media (prefers-color-scheme: dark) {{ :root {{ --bg: #0D1017; --ink: #E6EAF2; --muted: #A3ACBD; --signal: #3A7BFF; }} }}
+body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+  font: 400 1.0625rem/1.55 system-ui, -apple-system, Roboto, sans-serif; }}
+main {{ max-width: 26rem; padding: 32px 20px; }}
+h1 {{ font-size: 1.5rem; line-height: 1.25; margin: 0 0 12px; }}
+p {{ margin: 0 0 14px; color: var(--muted); }}
+a.btn {{ display: inline-block; margin: 6px 0 18px; padding: 14px 20px; border-radius: 14px; background: var(--signal);
+  color: #fff; font-weight: 600; text-decoration: none; }}
+a {{ color: inherit; }}
+html:not([lang="ru"]) .ru, html[lang="ru"] .en {{ display: none; }}
+</style>
+<script>if (/^ru/i.test(navigator.language || '')) {{ document.documentElement.lang = 'ru'; document.title = 'Скачать Sash {VERSION}'; }}</script>
+</head>
+<body>
+<main>
+  <div class="en">
+    <h1>Downloading Sash {VERSION}</h1>
+    <p>When it’s done, open the APK. Android asks to allow installs from your browser: turn on “Allow from this source”.</p>
+    <a class="btn" href="{APK}">Download APK</a>
+    <p>Then install <a href="https://getsill.app/download">Sill for Mac</a> on the Mac and pair them on the same Wi‑Fi. <a href="/#start">Step by step</a></p>
+  </div>
+  <div class="ru">
+    <h1>Скачивается Sash {VERSION}</h1>
+    <p>Когда загрузится, откройте APK. Android попросит разрешить установку для браузера: включите «Разрешить из этого источника».</p>
+    <a class="btn" href="{APK}">Скачать APK</a>
+    <p>Затем поставьте <a href="https://getsill.app/download">Sill for Mac</a> на Mac и сопрягите их в одной Wi‑Fi сети. <a href="/ru/#start">По шагам</a></p>
+  </div>
+</main>
+</body>
+</html>
+""", encoding="utf-8")
 
 alternates = "".join(
     f'\n    <xhtml:link rel="alternate" hreflang="{l}" href="{ORIGIN}{p}"/>' for l, p in PAGES.items()
