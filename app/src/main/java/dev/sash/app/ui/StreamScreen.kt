@@ -230,9 +230,12 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                         VideoPane(c, latch, scope, scale, trackCursor.value, showStats.value, null, zoom = zoom, offerKeyboard = offerKeyboard)
                     }
                     ButtonRow(c, keyboardUp, onKeyboard = { keyboardUp = !keyboardUp }, onSheet = { sheet = it }, scale = scale, onScale = { scale = it })
-                    WindowStrip(c, Modifier.fillMaxWidth().height(64.dp))
+                    // With the keyboard up the room above it is short: the window strip and the
+                    // trackpad step aside (rather than being squeezed), and the Mac's keys sit on the keyboard.
+                    if (!keyboardUp) WindowStrip(c, Modifier.fillMaxWidth().height(64.dp))
+                    if (keyboardUp) Spacer(Modifier.weight(1f))
                     KeyRow(c, latch, latchState.value, Modifier.fillMaxWidth())
-                    Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
+                    if (!keyboardUp) Trackpad(c, latch, scope, trackCursor, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
                     if (keyboardUp) Spacer(Modifier.height(1.dp))
                 }
             } else if (tall) {
@@ -296,15 +299,20 @@ fun StreamScreen(c: Controller, activity: MainActivity) {
                 // Where the fitted picture leaves a black band above it wide enough for the bar (a
                 // squarer screen, such as a foldable's inner one), the bar stays put: it hides nothing.
                 val density = LocalDensity.current
-                val barFits = !zoom.zoomed && videoSize?.let { (w, h) ->
+                // Where the desktop keeps its size with its top under the bar (a foldable's inner
+                // screen held sideways leaves bands above and below it), the picture goes there and
+                // the bar stays shown: it hides nothing, and the windows are a tap away.
+                val barRoomTop = with(density) { barInsets.getTop(density).toDp() } + BarHeight
+                val underBar = maxWidth / deskAspect <= maxHeight - barRoomTop
+                val barFits = underBar || (!zoom.zoomed && videoSize?.let { (w, h) ->
                     val fit = with(density) { VideoRect.fit(maxWidth.toPx(), maxHeight.toPx(), w, h) }
                     fit.top >= barInsets.getTop(density) + with(density) { BarHeight.toPx() }
-                } == true
+                } == true)
                 val barUp = barShown || barFits
                 val barRoom by animateDpAsState(if (barUp) BarHeight else 0.dp, label = "bar")
                 Box(Modifier.fillMaxSize()) {
                     Box(
-                        Modifier.fillMaxSize().pointerInput(Unit) {
+                        Modifier.fillMaxSize().padding(top = if (underBar) barRoomTop else 0.dp).pointerInput(Unit) {
                             awaitEachGesture { awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial); barShown = false }
                         },
                     ) {
