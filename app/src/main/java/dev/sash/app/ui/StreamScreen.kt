@@ -134,6 +134,7 @@ import dev.sash.app.R
 import dev.sash.app.stream.BarPosition
 import dev.sash.app.stream.Controller
 import dev.sash.app.stream.orderedWindows
+import dev.sash.app.stream.appKey
 import dev.sash.app.stream.HidKeys
 import dev.sash.app.stream.Phase
 import dev.sash.app.stream.Target
@@ -642,8 +643,11 @@ private fun WindowStrip(c: Controller, modifier: Modifier, onSheet: (Sheet) -> U
         item(key = "desktop") {
             StripTile(Icons.Default.DesktopMac, stringResource(R.string.desktop), windows?.active == StreamSource.Desktop) { c.select(StreamSource.Desktop) }
         }
-        items(list, key = { it.id }) { w ->
-            WindowThumb(c, w, thumbs[w.id], icons[w.bundleID], w.id == active, onMenu)
+        // One tile per app: its window on screen now, or its first, with how many it has.
+        val apps = list.groupBy { appKey(it) }.values.toList()
+        items(apps, key = { appKey(it.first()) }) { group ->
+            val shown = group.firstOrNull { it.id == active } ?: group.first()
+            WindowThumb(c, shown, group, thumbs, icons[shown.bundleID], shown.id == active, onMenu)
         }
         item(key = "apps") {
             StripTile(Icons.Default.Apps, stringResource(R.string.apps), false) { onSheet(Sheet.APPS) }
@@ -729,22 +733,57 @@ private fun MoreButton(c: Controller, scale: Double?, onScale: (Double?) -> Unit
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WindowThumb(c: Controller, w: WindowInfo, thumb: ImageBitmap?, icon: ImageBitmap?, active: Boolean, onMenu: (Boolean) -> Unit) {
+private fun WindowThumb(
+    c: Controller,
+    w: WindowInfo,
+    group: List<WindowInfo>,
+    thumbs: Map<Long, ImageBitmap>,
+    icon: ImageBitmap?,
+    active: Boolean,
+    onMenu: (Boolean) -> Unit,
+) {
+    val thumb = thumbs[w.id]
     var menu by remember { mutableStateOf(false) }
+    var pick by remember { mutableStateOf(false) }
     MenuOpen(menu, onMenu)
+    MenuOpen(pick, onMenu)
     val view = LocalView.current
     Box(
         Modifier.height(50.dp).width(80.dp).clip(RoundedCornerShape(10.dp))
             .background(ChipColor)
             .border(if (active) 2.dp else 1.dp, if (active) Accent else Hairline, RoundedCornerShape(10.dp))
             .combinedClickable(
-                onClick = { c.select(StreamSource.Window(w.id)) },
+                // One window: straight to it. Several: a list of them to pick from.
+                onClick = { if (group.size > 1) pick = true else c.select(StreamSource.Window(w.id)) },
                 onLongClick = { view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); menu = true },
             ),
     ) {
         if (thumb != null) Image(thumb, w.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Text(w.appName, Modifier.align(Alignment.Center).padding(4.dp), color = InkDim, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (icon != null) Image(icon, null, Modifier.align(Alignment.BottomEnd).padding(3.dp).size(20.dp))
+        if (group.size > 1) {
+            Text(
+                "${group.size}",
+                Modifier.align(Alignment.TopEnd).padding(3.dp).background(Glass, RoundedCornerShape(8.dp)).padding(horizontal = 6.dp),
+                color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+            )
+        }
+        DropdownMenu(pick, { pick = false }) {
+            Text(
+                "${w.appName} · ${stringResource(R.string.windows_count, group.size)}",
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium,
+            )
+            group.forEach { g ->
+                DropdownMenuItem(
+                    { Text(g.title.ifEmpty { g.appName }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    onClick = { c.select(StreamSource.Window(g.id)); pick = false },
+                    leadingIcon = {
+                        thumbs[g.id]?.let { Image(it, null, Modifier.size(width = 48.dp, height = 30.dp).clip(RoundedCornerShape(4.dp)), contentScale = ContentScale.Crop) }
+                    },
+                    trailingIcon = { if (active && g.id == w.id) Text("✓") },
+                )
+            }
+        }
         DropdownMenu(menu, { menu = false }) {
             Text("${w.appName} — ${w.title}".take(60), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
             DropdownMenuItem({ Text(stringResource(R.string.window_close)) }, onClick = { c.windowCommand(w.id, WindowCommand.CLOSE); menu = false }, leadingIcon = { Dot(Color(0xFFFF5F57)) })
